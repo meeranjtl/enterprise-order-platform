@@ -1,0 +1,346 @@
+# ============================================================================
+# Enterprise Order Platform - .gitignore
+# Best practices for Java, Maven, Spring Boot, React, Docker, and Node.js
+# ============================================================================
+
+# ============================================================================
+# Build Artifacts & Output
+# ============================================================================
+target/
+build/
+out/
+dist/
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Maven
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+.mvn/
+mvnw
+mvnw.cmd
+mvn-build.log
+
+# Gradle (if added later)
+.gradle
+gradle-app.setting
+!gradle-wrapper.jar
+gradle-wrapper.properties
+
+# ============================================================================
+# IDE & Editor Files
+# ============================================================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+*.ids
+*.orig
+*.bak
+*.swp
+*.swo
+*~
+
+# Eclipse
+.classpath
+.project
+.settings/
+*.launch
+.c9/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# NetBeans
+nbproject/
+nb-configuration.xml
+*.nbactions.xml
+
+# vim
+.vim/
+*.vim
+.swp
+.swo
+
+# Emacs
+.#*
+*#*#
+
+# General Editor
+.DS_Store
+Thumbs.db
+
+# ============================================================================
+# Java & Spring Boot Specific
+# ============================================================================
+*.ser
+*.log
+*.log.*
+logs/
+spring.log
+*.h2.db
+*.mv.db
+*.trace.db
+database.mv.db
+
+# Spring Boot
+application-dev.yml
+application-local.yml
+application-test.yml
+application-prod.yml
+
+# ============================================================================
+# Maven Multi-Module
+# ============================================================================
+# Local repository directory (if maven runs local repo)
+.m2/
+
+# ============================================================================
+# Database & Data Files
+# ============================================================================
+*.db
+*.sqlite
+*.sqlite3
+*.derby.db
+data/
+db/
+*.sql.backup
+postgres_data/
+
+# ============================================================================
+# Docker & Container Files
+# ============================================================================
+.dockerignore
+docker-compose.override.yml
+.docker/
+
+# ============================================================================
+# Environment & Configuration
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+application.properties
+application-local.properties
+
+# Secrets and Credentials
+.vault/
+secrets/
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+!src/main/resources/certs/*
+
+# ============================================================================
+# Node.js & React Frontend (Phase 13)
+# ============================================================================
+node_modules/
+npm-debug.log
+npm-debug.log.*
+yarn-debug.log
+yarn-error.log
+.pnp
+.pnp.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# React build output
+ui/dist/
+ui/build/
+ui/.cache/
+ui/.parcel-cache
+ui/.next
+ui/out
+
+# Node version managers
+.nvmrc
+
+# ============================================================================
+# System & OS Files
+# ============================================================================
+# macOS
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Windows
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.Xauthority
+.Xresources
+
+# ============================================================================
+# Local Development & Testing
+# ============================================================================
+# Test coverage reports
+target/site/
+jacoco.exec
+.jacoco.exec
+coverage/
+htmlcov/
+.coverage
+*.coverage
+
+# Test outputs
+test-output/
+test-results/
+surefire-reports/
+failsafe-reports/
+
+# Load testing artifacts
+perf-results/
+load-test-results/
+
+# Local test data
+test-data.sql
+test-data.json
+
+# ============================================================================
+# Temporary & Backup Files
+# ============================================================================
+*.backup
+*.tmp
+*.temp
+*.DS_Store
+.~
+\#*\#
+.\#*
+
+# ============================================================================
+# Documentation Build Artifacts
+# ============================================================================
+docs/_build/
+docs/site/
+site/
+
+# ============================================================================
+# Gradle Wrapper (if added)
+# ============================================================================
+!gradle/wrapper/gradle-wrapper.jar
+
+# ============================================================================
+# Maven Wrapper
+# ============================================================================
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/MavenWrapperDownloader.java
+maven-wrapper.properties
+
+# ============================================================================
+# Kubernetes & Helm (for future deployment phases)
+# ============================================================================
+*.yaml.bak
+*.yml.bak
+
+# ============================================================================
+# Performance & Profiling
+# ============================================================================
+*.jfr
+*.hprof
+profiler-results/
+flame-graphs/
+
+# ============================================================================
+# Code Generation
+# ============================================================================
+generated/
+generated-sources/
+generated-test-sources/
+target/generated-sources/
+target/generated-test-sources/
+
+# MapStruct generated classes (already in target/ but being explicit)
+target/generated-sources/annotations/
+
+# ============================================================================
+# Code Quality & Analysis
+# ============================================================================
+.sonarqube/
+.sonar/
+sonar-project.properties.local
+.pylint
+.flake8
+.mypy_cache/
+.pytype/
+
+# ============================================================================
+# CI/CD Artifacts (optional to ignore - keep if in version control)
+# ============================================================================
+# GitHub Actions workflows are version controlled
+# But keep these out:
+.github/workflows/*.tmp
+.github/workflows/*.bak
+
+# ============================================================================
+# Temporary Docker compose overrides
+# ============================================================================
+docker-compose.local.yml
+docker-compose.dev.yml
+
+# ============================================================================
+# Miscellaneous
+# ============================================================================
+*.pid
+*.seed
+*.pid.lock
+.history/
+.cache/
+.vuepress/dist
+
+# ============================================================================
+# Project Specific (Enterprise Order Platform)
+# ============================================================================
+# Local development database backups
+backups/
+db-snapshots/
+
+# Local Kafka data (if running locally)
+kafka-data/
+zookeeper-data/
+
+# Analytics & reporting temporary files
+analytics/temp/
+reports/generated/
+
+# ============================================================================
+# IDE Generated Files Not Listed Above
+# ============================================================================
+*.classpath
+*.project
+
+# ============================================================================
+# IMPORTANT: Files to Explicitly NOT Ignore
+# ============================================================================
+# Keep version controlled:
+!.github/workflows/*.yml
+!pom.xml
+!.gitkeep
+!Dockerfile
+!.dockerignore
+!docker-compose.yml

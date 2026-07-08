@@ -1,2 +1,13 @@
-# enterprise-order-platform
-Production-ready Enterprise Order Platform built with Java 21, Spring Boot 3, Kafka, PostgreSQL, Docker, React, Clean Architecture, CQRS, Saga Pattern, Observability, Security, and Testing.
+# Enterprise Order Platform
+
+Phase 1 foundation.
+
+## Goals
+- Java 21
+- Spring Boot multi-module
+- Docker-ready
+- PostgreSQL
+- Shared common library
+- Architecture-first
+
+This is the initial scaffold. Subsequent phases will add complete runnable services.

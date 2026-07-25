@@ -6,15 +6,11 @@ import com.enterprise.order.shared.dto.BaseResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,9 +25,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(CustomerController.class)
 class CustomerControllerTest {
 
     @Autowired
@@ -52,7 +46,7 @@ class CustomerControllerTest {
                 .email("john@example.com")
                 .firstName("John")
                 .lastName("Doe")
-                .phone("+1-234-567-8900")
+                .phone("+15550100123")
                 .status("ACTIVE")
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

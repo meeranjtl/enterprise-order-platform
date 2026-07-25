@@ -131,7 +131,6 @@ class CustomerServiceTest {
     @Test
     void testUpdateCustomer_Success() {
         when(customerRepository.findById(1L)).thenReturn(Optional.of(customer));
-        when(customerRepository.findByEmail("john@example.com")).thenReturn(Optional.of(customer));
         when(customerRepository.save(any(Customer.class))).thenReturn(customer);
         when(customerMapper.toDTO(any(Customer.class))).thenReturn(customerDTO);
 

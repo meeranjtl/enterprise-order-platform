@@ -36,7 +36,7 @@ public class CustomerController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get customer by ID")
-    public ResponseEntity<BaseResponse<CustomerDTO>> getCustomer(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<CustomerDTO>> getCustomer(@PathVariable("id") Long id) {
         log.info("GET /api/v1/customers/{} - Fetching customer", id);
 
         CustomerDTO customer = customerService.getCustomer(id);
@@ -55,12 +55,12 @@ public class CustomerController {
     @GetMapping("/search/advanced")
     @Operation(summary = "Search customers with advanced filtering")
     public ResponseEntity<BaseResponse<Page<CustomerDTO>>> searchCustomers(
-            @Parameter(description = "Filter by email") @RequestParam(required = false) String email,
-            @Parameter(description = "Filter by first name") @RequestParam(required = false) String firstName,
-            @Parameter(description = "Filter by last name") @RequestParam(required = false) String lastName,
-            @Parameter(description = "Filter by status (ACTIVE, INACTIVE, SUSPENDED, DELETED)") @RequestParam(required = false) String status,
-            @Parameter(description = "Filter by city") @RequestParam(required = false) String city,
-            @Parameter(description = "Filter by country") @RequestParam(required = false) String country,
+            @Parameter(description = "Filter by email") @RequestParam(name = "email", required = false) String email,
+            @Parameter(description = "Filter by first name") @RequestParam(name = "firstName", required = false) String firstName,
+            @Parameter(description = "Filter by last name") @RequestParam(name = "lastName", required = false) String lastName,
+            @Parameter(description = "Filter by status (ACTIVE, INACTIVE, SUSPENDED, DELETED)") @RequestParam(name = "status", required = false) String status,
+            @Parameter(description = "Filter by city") @RequestParam(name = "city", required = false) String city,
+            @Parameter(description = "Filter by country") @RequestParam(name = "country", required = false) String country,
             Pageable pageable) {
         log.info("GET /api/v1/customers/search/advanced - Searching customers");
 
@@ -70,7 +70,7 @@ public class CustomerController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update customer")
-    public ResponseEntity<BaseResponse<CustomerDTO>> updateCustomer(@PathVariable Long id,
+    public ResponseEntity<BaseResponse<CustomerDTO>> updateCustomer(@PathVariable("id") Long id,
                                                                      @Valid @RequestBody CustomerDTO customerDTO) {
         log.info("PUT /api/v1/customers/{} - Updating customer", id);
 
@@ -80,7 +80,7 @@ public class CustomerController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete customer")
-    public ResponseEntity<BaseResponse<Void>> deleteCustomer(@PathVariable Long id) {
+    public ResponseEntity<BaseResponse<Void>> deleteCustomer(@PathVariable("id") Long id) {
         log.info("DELETE /api/v1/customers/{} - Deleting customer", id);
 
         customerService.deleteCustomer(id);

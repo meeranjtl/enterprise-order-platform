@@ -119,6 +119,7 @@
                     <configuration>
                         <source>21</source>
                         <target>21</target>
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.mapstruct</groupId>
@@ -131,6 +132,20 @@
                                 <version>${lombok.version}</version>
                             </path>
                         </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.2.5</version>
+                    <configuration>
+                        <argLine>-Duser.timezone=Asia/Kolkata</argLine>
+                        <useModulePath>false</useModulePath>
+                        <includes>
+                            <include>**/*Test.java</include>
+                            <include>**/*Tests.java</include>
+                            <include>**/*IT.java</include>
+                        </includes>
                     </configuration>
                 </plugin>
             </plugins>

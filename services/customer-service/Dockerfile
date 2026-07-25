@@ -25,10 +25,10 @@ RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
 USER appuser
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8081
 
 # Health check
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 CMD curl -f http://localhost:8080/actuator/health || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 CMD curl -f http://localhost:8081/actuator/health || exit 1
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

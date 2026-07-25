@@ -9,10 +9,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -20,8 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@Testcontainers
-@ActiveProfiles("test")
+@Testcontainers(disabledWithoutDocker = true)
 class CustomerServiceIntegrationTest {
 
     @Container
@@ -29,6 +29,13 @@ class CustomerServiceIntegrationTest {
             .withDatabaseName("enterprise_order_test")
             .withUsername("postgres")
             .withPassword("postgres");
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
 
     @Autowired
     private CustomerService customerService;

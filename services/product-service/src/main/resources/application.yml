@@ -1,15 +1,15 @@
 spring:
   application:
-    name: customer-service
+    name: product-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=customer
+    url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=product
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: validate
-      default_schema: customer
+      default_schema: product
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -20,12 +20,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baselineOnMigrate: true
-    schemas: customer
-    table: flyway_schema_history_customer
+    schemas: product
+    default_schema: product
+    table: flyway_schema_history_product
     create-schemas: true
 
 server:
-  port: 8081
+  port: 8082
   servlet:
     context-path: /
 
@@ -50,4 +51,3 @@ logging:
     com.enterprise.order: INFO
     org.springframework.web: DEBUG
     org.hibernate.SQL: DEBUG
-

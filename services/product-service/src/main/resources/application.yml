@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: product-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=product
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      default_schema: product
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baselineOnMigrate: true
+    schemas: product
+    default_schema: product
+    table: flyway_schema_history_product
+    create-schemas: true
+
+server:
+  port: 8082
+  servlet:
+    context-path: /
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  pattern:
+    # Include the correlation ID (set by shared-library's CorrelationIdLoggingFilter) in every line
+    level: "%5p [corr=%X{correlationId:-}]"
+  level:
+    com.enterprise.order: INFO
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG

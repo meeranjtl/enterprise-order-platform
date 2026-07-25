@@ -46,6 +46,9 @@ management:
       show-details: always
 
 logging:
+  pattern:
+    # Include the correlation ID (set by shared-library's CorrelationIdLoggingFilter) in every line
+    level: "%5p [corr=%X{correlationId:-}]"
   level:
     com.enterprise.order: INFO
     org.springframework.web: DEBUG

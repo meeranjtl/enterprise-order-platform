@@ -1,0 +1,7 @@
+# Keep the Docker build context small: service images build from source inside
+# the multi-stage builder, so local build outputs are never needed in the context.
+**/target/
+.git/
+.idea/
+*.log
+.claude/

@@ -6,7 +6,9 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 1 (Foundation)**, with skeleton services ready.
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 4 complete (API Gateway)** — foundation, customer-service (:8081), product-service (:8082), and the gateway (:8080) are implemented; next up is Phase 5 (Order Service).
+
+**Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
 **Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 18, Docker Compose, Resilience4j  
 **Project Type:** Maven multi-module with 10 services + shared library  
@@ -436,7 +438,7 @@ Examples:
 
 ---
 
-**Last Updated:** July 8, 2026  
-**For Phase:** Foundation (Phase 1 - Architecture Established)  
-**Next Phases:** Customer Service (Phase 2), Product Service (Phase 3), ...see PHASE_QUICK_REFERENCE.md
+**Last Updated:** July 25, 2026  
+**For Phase:** Phase 4 complete (API Gateway & Routing)  
+**Next Phase:** Order Service (Phase 5) — depends on Phases 1–4; see PHASE_QUICK_REFERENCE.md
 

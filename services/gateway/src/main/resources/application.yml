@@ -48,6 +48,16 @@ spring:
                 name: productService
                 fallbackUri: forward:/fallback/product-service
 
+        - id: order-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: orderService
+                fallbackUri: forward:/fallback/order-service
+
         # Swagger aggregation: proxy each service's OpenAPI docs through the gateway
         - id: customer-service-api-docs
           uri: http://localhost:8081
@@ -63,8 +73,14 @@ spring:
           filters:
             - RewritePath=/product-service/api-docs, /api-docs
 
+        - id: order-service-api-docs
+          uri: http://localhost:8083
+          predicates:
+            - Path=/order-service/api-docs
+          filters:
+            - RewritePath=/order-service/api-docs, /api-docs
+
         # Future services (added as their phases land):
-        # - order-service        :8083  /api/v1/orders/**
         # - inventory-service    :8084  /api/v1/inventory/**
         # - payment-service      :8085  /api/v1/payments/**
         # - shipping-service     :8086  /api/v1/shipping/**
@@ -99,6 +115,8 @@ springdoc:
         url: /customer-service/api-docs
       - name: Product Service
         url: /product-service/api-docs
+      - name: Order Service
+        url: /order-service/api-docs
 
 logging:
   level:
@@ -122,6 +140,8 @@ resilience4j:
         baseConfig: default
       productService:
         baseConfig: default
+      orderService:
+        baseConfig: default
   # The Spring Cloud Gateway CircuitBreaker filter applies a TimeLimiter whose
   # default timeout is 1s — override explicitly or every slow call would time out.
   timelimiter:
@@ -134,3 +154,6 @@ resilience4j:
         baseConfig: default
       productService:
         baseConfig: default
+      orderService:
+        baseConfig: default
+

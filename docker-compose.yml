@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:15
@@ -25,7 +24,7 @@ services:
       dockerfile: services/customer-service/Dockerfile
     container_name: enterprise-customer-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=customer
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     ports:
@@ -42,7 +41,7 @@ services:
       dockerfile: services/product-service/Dockerfile
     container_name: enterprise-product-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=product
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     ports:
@@ -50,6 +49,29 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - enterprise-order-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    container_name: enterprise-order-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=orders
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      ORDER_CLIENTS_CUSTOMER_SERVICE_URL: http://customer-service:8081
+      ORDER_CLIENTS_PRODUCT_SERVICE_URL: http://product-service:8082
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      customer-service:
+        condition: service_started
+      product-service:
+        condition: service_started
     networks:
       - enterprise-order-network
 
@@ -83,6 +105,8 @@ services:
       customer-service:
         condition: service_started
       product-service:
+        condition: service_started
+      order-service:
         condition: service_started
     networks:
       - enterprise-order-network

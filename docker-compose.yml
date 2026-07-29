@@ -24,7 +24,7 @@ services:
       dockerfile: services/customer-service/Dockerfile
     container_name: enterprise-customer-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=customer
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     ports:
@@ -41,7 +41,7 @@ services:
       dockerfile: services/product-service/Dockerfile
     container_name: enterprise-product-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=product
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     ports:
@@ -58,7 +58,7 @@ services:
       dockerfile: services/order-service/Dockerfile
     container_name: enterprise-order-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=orders
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       ORDER_CLIENTS_CUSTOMER_SERVICE_URL: http://customer-service:8081

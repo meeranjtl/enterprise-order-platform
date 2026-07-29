@@ -96,6 +96,7 @@ spring:
             - Path=/inventory-service/api-docs
           filters:
             - RewritePath=/inventory-service/api-docs, /api-docs
+
         # Future services (added as their phases land):
         # - inventory-service    :8084  /api/v1/inventory/**
         # - payment-service      :8085  /api/v1/payments/**
@@ -133,6 +134,8 @@ springdoc:
         url: /product-service/api-docs
       - name: Order Service
         url: /order-service/api-docs
+      - name: Inventory Service
+        url: /inventory-service/api-docs
 
 logging:
   level:
@@ -158,6 +161,8 @@ resilience4j:
         baseConfig: default
       orderService:
         baseConfig: default
+      inventoryService:
+        baseConfig: default
   # The Spring Cloud Gateway CircuitBreaker filter applies a TimeLimiter whose
   # default timeout is 1s — override explicitly or every slow call would time out.
   timelimiter:
@@ -171,5 +176,7 @@ resilience4j:
       productService:
         baseConfig: default
       orderService:
+        baseConfig: default
+      inventoryService:
         baseConfig: default
 

@@ -13,6 +13,7 @@ COPY services/inventory-service ./services/inventory-service
 COPY services/gateway/pom.xml ./services/gateway/pom.xml
 COPY services/customer-service/pom.xml ./services/customer-service/pom.xml
 COPY services/product-service/pom.xml ./services/product-service/pom.xml
+COPY services/order-service/pom.xml ./services/order-service/pom.xml
 COPY services/inventory-service/pom.xml ./services/inventory-service/pom.xml
 COPY services/payment-service/pom.xml ./services/payment-service/pom.xml
 COPY services/shipping-service/pom.xml ./services/shipping-service/pom.xml

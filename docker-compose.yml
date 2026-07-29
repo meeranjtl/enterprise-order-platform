@@ -75,6 +75,24 @@ services:
     networks:
       - enterprise-order-network
 
+  inventory-service:
+    build:
+      context: .
+      dockerfile: services/inventory-service/Dockerfile
+    container_name: enterprise-inventory-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=inventory
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      INVENTORY_KAFKA_ENABLED: "false"
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
   redis:
     image: redis:7-alpine
     container_name: enterprise-redis

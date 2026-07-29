@@ -39,6 +39,13 @@ public class FallbackController {
         return buildFallback("Order service");
     }
 
+    @RequestMapping(value = "/inventory-service", method = {
+            RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+            RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<GatewayErrorResponse> inventoryServiceFallback() {
+        return buildFallback("Inventory service");
+    }
+
     private ResponseEntity<GatewayErrorResponse> buildFallback(String service) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(GatewayErrorResponse.of(

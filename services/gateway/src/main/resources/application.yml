@@ -58,6 +58,16 @@ spring:
                 name: orderService
                 fallbackUri: forward:/fallback/order-service
 
+        - id: inventory-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/v1/inventory/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventoryService
+                fallbackUri: forward:/fallback/inventory-service
+
         # Swagger aggregation: proxy each service's OpenAPI docs through the gateway
         - id: customer-service-api-docs
           uri: http://localhost:8081
@@ -80,6 +90,12 @@ spring:
           filters:
             - RewritePath=/order-service/api-docs, /api-docs
 
+        - id: inventory-service-api-docs
+          uri: http://localhost:8084
+          predicates:
+            - Path=/inventory-service/api-docs
+          filters:
+            - RewritePath=/inventory-service/api-docs, /api-docs
         # Future services (added as their phases land):
         # - inventory-service    :8084  /api/v1/inventory/**
         # - payment-service      :8085  /api/v1/payments/**

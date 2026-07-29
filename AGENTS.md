@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 4 complete (API Gateway)** — foundation, customer-service (:8081), product-service (:8082), and the gateway (:8080) are implemented; next up is Phase 5 (Order Service).
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 6 complete (Inventory Service)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), and inventory-service (:8084) are implemented; next up is Phase 7 (Payment Service).
 
 **Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
@@ -438,7 +438,6 @@ Examples:
 
 ---
 
-**Last Updated:** July 25, 2026  
-**For Phase:** Phase 4 complete (API Gateway & Routing)  
-**Next Phase:** Order Service (Phase 5) — depends on Phases 1–4; see PHASE_QUICK_REFERENCE.md
-
+**Last Updated:** July 29, 2026
+**For Phase:** Phase 6 complete (Inventory Service — reservation, release, adjustment, transaction audit, and idempotency)
+**Next Phase:** Payment Service (Phase 7) — depends on Phases 1–6; see PHASE_QUICK_REFERENCE.md

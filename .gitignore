@@ -344,3 +344,5 @@ reports/generated/
 !Dockerfile
 !.dockerignore
 !docker-compose.yml
+
+/.claude/

@@ -35,6 +35,16 @@ spring:
                 name: orderService
                 fallbackUri: forward:/fallback/order-service
 
+        - id: inventory-service
+          uri: http://inventory-service:8084
+          predicates:
+            - Path=/api/v1/inventory/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: inventoryService
+                fallbackUri: forward:/fallback/inventory-service
+
         - id: customer-service-api-docs
           uri: http://customer-service:8081
           predicates:
@@ -56,6 +66,12 @@ spring:
           filters:
             - RewritePath=/order-service/api-docs, /api-docs
 
+        - id: inventory-service-api-docs
+          uri: http://inventory-service:8084
+          predicates:
+            - Path=/inventory-service/api-docs
+          filters:
+            - RewritePath=/inventory-service/api-docs, /api-docs
   data:
     redis:
       host: redis

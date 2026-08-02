@@ -1,0 +1,50 @@
+{
+  "namespace": "com.enterprise.order.shared.events.inventory",
+  "type": "record",
+  "name": "InventoryReservedEvent",
+  "fields": [
+    {
+      "name": "reservationId",
+      "type": "string",
+      "doc": "Unique reservation identifier"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Order identifier"
+    },
+    {
+      "name": "productId",
+      "type": "string",
+      "doc": "Product identifier"
+    },
+    {
+      "name": "quantity",
+      "type": "int",
+      "doc": "Quantity reserved"
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "ReservationStatus",
+        "symbols": ["PENDING", "CONFIRMED", "FAILED", "RELEASED"]
+      },
+      "doc": "Reservation status"
+    },
+    {
+      "name": "failureReason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Reason if reservation failed (e.g., insufficient stock)"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "doc": "Event timestamp in milliseconds (epoch)"
+    }
+  ]
+}

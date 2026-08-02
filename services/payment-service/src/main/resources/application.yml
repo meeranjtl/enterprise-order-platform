@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=payment
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    schemas: payment
+    default-schema: payment
+    table: flyway_schema_history_payment
+    create-schemas: true
+  kafka:
+    bootstrap-servers: localhost:9092
+
+server:
+  port: 8085
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+
+payment:
+  kafka:
+    enabled: false
+  retry:
+    scan-delay-ms: 1000

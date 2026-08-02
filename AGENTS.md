@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 6 complete (Inventory Service)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), and inventory-service (:8084) are implemented; next up is Phase 7 (Payment Service).
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 7 complete (Payment Service)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), and payment-service (:8085) are implemented; next up is Phase 8 (Order Orchestration/Saga).
 
 **Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
@@ -31,12 +31,12 @@ React UI (Phase 13) → API Gateway (Spring Cloud Gateway) → 9 Microservices
 
 **Current Services** (see `services/` directory):
 - **shared-library**: Common exceptions, DTOs, validators, response wrappers, logging utilities
-- **gateway**: API Gateway (Phase 4)
-- **customer-service**: Customer CRUD (Phase 2)
-- **product-service**: Product catalog (Phase 3)
-- **order-service**: Order processing (Phase 5)
-- **inventory-service**: Stock management (Phase 6)
-- **payment-service**: Payment handling (Phase 7)
+- **gateway**: API Gateway (Phase 4) ✅
+- **customer-service**: Customer CRUD (Phase 2) ✅
+- **product-service**: Product catalog (Phase 3) ✅
+- **order-service**: Order processing (Phase 5) ✅
+- **inventory-service**: Stock management (Phase 6) ✅
+- **payment-service**: Payment handling (Phase 7) ✅
 - **shipping-service**: Fulfillment (Phase 9)
 - **notification-service**: Email/SMS (Phase 9)
 - **analytics-service**: Metrics/reporting (Phase 10)
@@ -129,6 +129,12 @@ All cross-cutting code lives in `services/shared-library/src/main/java/com/enter
 - **validation/**: Custom validators (e.g., `@ValidPhone`, `@ValidAddress` with regex patterns)
 - **config/**: `GlobalExceptionHandler` (@RestControllerAdvice) handles all app exceptions → RFC 7807 Problem Details format
 - **util/**: Common utilities (logging, correlation IDs, etc.)
+
+### Code Formatting Requirements
+* **Preserve Structure:** Maintain proper vertical spacing and line breaks between logical blocks.
+* **Enforce Readability:** Wrap long lines of code appropriately to prevent horizontal scrolling.
+* **Standard Conventions:** Adhere strictly to language-specific style guides (e.g., PEP 8 for Python, Prettier/Airbnb for JavaScript).
+* **No Compression:** Never output minified, single-line, or densely packed code unless explicitly requested.
 
 **When adding new cross-cutting code:** Add to shared-library, rebuild (`mvn clean install -pl services/shared-library`), then services can consume.
 
@@ -438,6 +444,6 @@ Examples:
 
 ---
 
-**Last Updated:** July 29, 2026
-**For Phase:** Phase 6 complete (Inventory Service — reservation, release, adjustment, transaction audit, and idempotency)
-**Next Phase:** Payment Service (Phase 7) — depends on Phases 1–6; see PHASE_QUICK_REFERENCE.md
+**Last Updated:** August 2, 2026
+**For Phase:** Phase 7 complete (Payment Service — payment processing, transaction audit, idempotency, order integration)
+**Next Phase:** Order Orchestration/Saga (Phase 8) — coordinates payment, inventory, and shipping; see PHASE_QUICK_REFERENCE.md

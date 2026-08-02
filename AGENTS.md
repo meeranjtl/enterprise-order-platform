@@ -130,6 +130,12 @@ All cross-cutting code lives in `services/shared-library/src/main/java/com/enter
 - **config/**: `GlobalExceptionHandler` (@RestControllerAdvice) handles all app exceptions → RFC 7807 Problem Details format
 - **util/**: Common utilities (logging, correlation IDs, etc.)
 
+### Code Formatting Requirements
+* **Preserve Structure:** Maintain proper vertical spacing and line breaks between logical blocks.
+* **Enforce Readability:** Wrap long lines of code appropriately to prevent horizontal scrolling.
+* **Standard Conventions:** Adhere strictly to language-specific style guides (e.g., PEP 8 for Python, Prettier/Airbnb for JavaScript).
+* **No Compression:** Never output minified, single-line, or densely packed code unless explicitly requested.
+
 **When adding new cross-cutting code:** Add to shared-library, rebuild (`mvn clean install -pl services/shared-library`), then services can consume.
 
 ---

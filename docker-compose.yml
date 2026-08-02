@@ -93,6 +93,24 @@ services:
     networks:
       - enterprise-order-network
 
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: enterprise-payment-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=payment
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      PAYMENT_KAFKA_ENABLED: "false"
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
   redis:
     image: redis:7-alpine
     container_name: enterprise-redis
@@ -125,6 +143,10 @@ services:
       product-service:
         condition: service_started
       order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      payment-service:
         condition: service_started
     networks:
       - enterprise-order-network

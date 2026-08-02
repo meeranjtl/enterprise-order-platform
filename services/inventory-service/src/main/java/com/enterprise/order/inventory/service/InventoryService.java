@@ -17,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.enterprise.order.shared.outbox.OutboxPublisher;
+import com.enterprise.order.shared.events.InventoryReservedEvent;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -25,6 +28,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final InventoryTransactionRepository transactionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final OutboxPublisher outboxPublisher;
 
     @Transactional(readOnly = true)
     public InventoryDTO get(Long productId) {
@@ -123,13 +127,30 @@ public class InventoryService {
             int quantity,
             String reason) {
         inventoryRepository.save(inventory);
-        return transactionRepository.save(InventoryTransaction.builder()
+        InventoryTransaction tx = transactionRepository.save(InventoryTransaction.builder()
                 .productId(inventory.getProductId())
                 .orderId(orderId)
                 .type(type)
                 .quantity(quantity)
                 .reason(reason)
                 .build());
+
+        // Store InventoryReservedEvent (or InventoryReleased) in outbox for reliable publishing
+        InventoryReservedEvent event = InventoryReservedEvent.builder()
+                .reservationId(tx.getId().toString())
+                .orderId(orderId == null ? null : orderId.toString())
+                .productId(inventory.getProductId().toString())
+                .quantity(quantity)
+                .status(type == TransactionType.RESERVE ? InventoryReservedEvent.ReservationStatus.CONFIRMED : InventoryReservedEvent.ReservationStatus.RELEASED)
+                .failureReason(null)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        String topic = InventoryReservedEvent.TOPIC;
+        String eventType = InventoryReservedEvent.EVENT_TYPE;
+        outboxPublisher.storeEvent(tx.getId().toString(), eventType, topic, tx.getId().toString(), event);
+
+        return tx;
     }
 
     private Inventory locked(Long productId) {

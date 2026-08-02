@@ -1,6 +1,8 @@
 spring:
   application:
     name: order-service
+  kafka:
+    bootstrap-servers: localhost:9092
   datasource:
     url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=orders
     username: postgres

@@ -21,6 +21,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.enterprise.order.shared.outbox.OutboxPublisher;
+import com.enterprise.order.shared.events.OrderCreatedEvent;
+import java.util.stream.Collectors;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -60,6 +64,7 @@ public class OrderService {
     private final CustomerClient customerClient;
     private final ProductClient productClient;
     private final OrderPricingProperties pricingProperties;
+    private final OutboxPublisher outboxPublisher;
 
     public OrderDTO createOrder(CreateOrderRequest request) {
         validateCreateRequest(request);
@@ -109,6 +114,23 @@ public class OrderService {
         order.setTotalAmount(total);
 
         Order saved = orderRepository.save(order);
+
+        // Store OrderCreatedEvent in outbox for reliable publishing
+        OrderCreatedEvent event = OrderCreatedEvent.builder()
+                .orderId(saved.getId().toString())
+                .orderNumber(saved.getOrderNumber())
+                .customerId(saved.getCustomerId().toString())
+                .totalAmount(saved.getTotalAmount().doubleValue())
+                .orderItems(saved.getItems().stream().map(i -> OrderCreatedEvent.OrderItem.builder()
+                        .productId(i.getProductId().toString())
+                        .quantity(i.getQuantity())
+                        .unitPrice(i.getUnitPrice().doubleValue())
+                        .build()).collect(Collectors.toList()))
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        outboxPublisher.storeEvent(saved.getId().toString(), OrderCreatedEvent.EVENT_TYPE, OrderCreatedEvent.TOPIC, saved.getOrderNumber(), event);
+
         log.info("Created order {} for customer {}", saved.getOrderNumber(), saved.getCustomerId());
         return orderMapper.toDTO(saved);
     }

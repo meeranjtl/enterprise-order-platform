@@ -10,6 +10,7 @@ import com.enterprise.order.inventory.repository.IdempotencyRecordRepository;
 import com.enterprise.order.inventory.repository.InventoryRepository;
 import com.enterprise.order.inventory.repository.InventoryTransactionRepository;
 import com.enterprise.order.shared.exception.BadRequestException;
+import com.enterprise.order.shared.outbox.OutboxPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,6 +38,9 @@ class InventoryServiceTest {
 
     @Mock
     private IdempotencyRecordRepository idempotencyRepository;
+
+    @Mock
+    private OutboxPublisher outboxPublisher;
 
     @InjectMocks
     private InventoryService inventoryService;

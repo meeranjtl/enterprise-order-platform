@@ -14,6 +14,7 @@ import com.enterprise.order.order.mapper.OrderMapper;
 import com.enterprise.order.order.repository.OrderRepository;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
+import com.enterprise.order.shared.outbox.OutboxPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +54,9 @@ class OrderServiceTest {
 
     @Mock
     private OrderPricingProperties pricingProperties;
+
+    @Mock
+    private OutboxPublisher outboxPublisher;
 
     @InjectMocks
     private OrderService orderService;
@@ -96,7 +100,11 @@ class OrderServiceTest {
         when(pricingProperties.getFreeShippingThreshold()).thenReturn(new BigDecimal("100.00"));
         when(pricingProperties.getFlatShippingCost()).thenReturn(new BigDecimal("10.00"));
         when(orderRepository.existsByOrderNumber(any())).thenReturn(false);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId(100L);
+            return order;
+        });
         when(orderMapper.toDTO(any(Order.class))).thenReturn(orderDTO);
 
         OrderDTO result = orderService.createOrder(request);
@@ -120,7 +128,11 @@ class OrderServiceTest {
         when(pricingProperties.getTaxRate()).thenReturn(new BigDecimal("0.10"));
         when(pricingProperties.getFreeShippingThreshold()).thenReturn(new BigDecimal("100.00"));
         when(orderRepository.existsByOrderNumber(any())).thenReturn(false);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId(100L);
+            return order;
+        });
         when(orderMapper.toDTO(any(Order.class))).thenReturn(orderDTO);
 
         orderService.createOrder(request);

@@ -50,9 +50,14 @@ public class OrderService {
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = new EnumMap<>(OrderStatus.class);
 
     static {
-        ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.VALIDATED, OrderStatus.CANCELLED, OrderStatus.FAILED));
+        // Phase 8 saga path: PENDING ->(inventory reserved)-> PAYMENT_PENDING
+        //   ->(payment completed)-> PAYMENT_APPROVED / ->(payment failed)-> PAYMENT_REJECTED.
+        // The manual path through VALIDATED is kept for API-driven flows.
+        ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.VALIDATED, OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED));
         ALLOWED_TRANSITIONS.put(OrderStatus.VALIDATED, EnumSet.of(OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED));
-        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_PENDING, EnumSet.of(OrderStatus.CANCELLED, OrderStatus.FAILED));
+        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_PENDING, EnumSet.of(OrderStatus.PAYMENT_APPROVED, OrderStatus.PAYMENT_REJECTED, OrderStatus.CANCELLED, OrderStatus.FAILED));
+        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_APPROVED, EnumSet.of(OrderStatus.SHIPPED, OrderStatus.COMPLETED));
+        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_REJECTED, EnumSet.of(OrderStatus.FAILED, OrderStatus.CANCELLED));
         ALLOWED_TRANSITIONS.put(OrderStatus.CANCELLED, EnumSet.noneOf(OrderStatus.class));
         ALLOWED_TRANSITIONS.put(OrderStatus.FAILED, EnumSet.noneOf(OrderStatus.class));
         ALLOWED_TRANSITIONS.put(OrderStatus.SHIPPED, EnumSet.of(OrderStatus.COMPLETED));

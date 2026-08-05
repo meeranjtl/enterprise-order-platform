@@ -19,7 +19,9 @@ import java.util.Map;
 @EnableKafka
 public class KafkaConfig {
 
-    @Value("${spring.kafka.bootstrap-servers}")
+    // Default keeps services that do not declare spring.kafka.* (e.g. customer-service)
+    // bootable; Docker Compose overrides this via SPRING_KAFKA_BOOTSTRAP_SERVERS.
+    @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
     @Bean

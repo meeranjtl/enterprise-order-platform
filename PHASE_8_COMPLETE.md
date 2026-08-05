@@ -151,7 +151,7 @@ PAYMENT_PENDING → PAYMENT_REJECTED (if PaymentProcessedEvent status=FAILED)
 | File | Change |
 |------|--------|
 | `shared-library/outbox/*` | Transactional outbox entity, repository, publisher, poller |
-| `shared-library/db/migration/V1__create_outbox_table.sql` | Outbox table schema |
+| `shared-library/db/migration/R__create_outbox_table.sql` | Outbox table schema (repeatable migration — every service already owns a `V1`, and Flyway requires globally unique versions) |
 
 ### Configuration
 
@@ -315,13 +315,14 @@ spring:
       schema.registry.url: http://schema-registry:8081
 ```
 
-Services publish JSON (or Avro binary), and schemas appear in Schema Registry at `http://localhost:8081/subjects`.
+Services publish JSON (or Avro binary), and schemas appear in Schema Registry at `http://localhost:8090/subjects`
+(host port 8090 → container port 8081; host port 8081 belongs to customer-service).
 
 ### Manual Registration (Optional)
 
 ```bash
 # Register OrderCreatedEvent schema
-curl -X POST http://localhost:8081/subjects/order-events-value/versions \
+curl -X POST http://localhost:8090/subjects/order-events-value/versions \
   -H "Content-Type: application/vnd.schemaregistry.v1+json" \
   -d @- < services/shared-library/src/main/avro/OrderEvents.avsc
 ```
@@ -378,7 +379,7 @@ curl -X POST http://localhost:8081/subjects/order-events-value/versions \
 
 ### Docker Compose
 - Kafka broker: `kafka:9092` (internal), `localhost:9092` (host)
-- Schema Registry: `schema-registry:8081`
+- Schema Registry: `schema-registry:8081` (internal), `localhost:8090` (host)
 - Kafka UI: `http://localhost:8888`
 - **Note:** `AUTO_CREATE_TOPICS_ENABLE=false`; topics auto-created via `KafkaConfig` beans on service startup
 

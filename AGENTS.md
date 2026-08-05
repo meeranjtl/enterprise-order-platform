@@ -515,7 +515,7 @@ services:
   schema-registry:
     image: confluentinc/cp-schema-registry:latest
     ports:
-      - "8081:8081"
+      - "8090:8081"   # host 8081 belongs to customer-service; registry stays 8081 inside the network
   
   kafka-ui:
     image: provectuslabs/kafka-ui:latest

@@ -25,6 +25,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Web-slice test: only the MVC layer boots (no Kafka/JPA beans). This works because the
+ * JPA repository/entity scans live in config.JpaConfig, which web slices do not load.
+ * Spring Data web support (Pageable resolver, Page serialization) comes with the slice.
+ */
 @WebMvcTest(CustomerController.class)
 class CustomerControllerTest {
 
@@ -130,4 +135,3 @@ class CustomerControllerTest {
                 .andExpect(jsonPath("$.message", containsString("deleted successfully")));
     }
 }
-

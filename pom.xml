@@ -42,6 +42,9 @@
         <java.version>21</java.version>
         <lombok.version>1.18.30</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <!-- 1.21.4+ required: Docker Engine 29 raised its minimum API version,
+             which breaks the older docker-java bundled with Testcontainers <= 1.21.3 -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencyManagement>
@@ -90,28 +93,28 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>junit-jupiter</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>kafka</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -193,16 +196,25 @@
                         <source>21</source>
                         <target>21</target>
                         <parameters>true</parameters>
+                        <!-- Lombok MUST run before MapStruct so the generated getters/setters
+                             are visible to the mapper processor; lombok-mapstruct-binding keeps
+                             the two processors cooperative. Wrong order produces empty mapper
+                             implementations at build time. -->
                         <annotationProcessorPaths>
-                            <path>
-                                <groupId>org.mapstruct</groupId>
-                                <artifactId>mapstruct-processor</artifactId>
-                                <version>${mapstruct.version}</version>
-                            </path>
                             <path>
                                 <groupId>org.projectlombok</groupId>
                                 <artifactId>lombok</artifactId>
                                 <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok-mapstruct-binding</artifactId>
+                                <version>0.2.0</version>
+                            </path>
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
                             </path>
                         </annotationProcessorPaths>
                     </configuration>

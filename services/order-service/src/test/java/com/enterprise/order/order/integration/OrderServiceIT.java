@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -45,7 +46,12 @@ class OrderServiceIT {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        // Mirror the Docker Compose URL (?currentSchema=orders) so unqualified table
+        // names resolve in the service schema for Hibernate's ddl-auto: validate.
+        registry.add("spring.datasource.url", () -> {
+            String url = postgres.getJdbcUrl();
+            return url + (url.contains("?") ? "&" : "?") + "currentSchema=orders";
+        });
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
     }
@@ -85,6 +91,7 @@ class OrderServiceIT {
     }
 
     @Test
+    @Transactional // keeps the Hibernate session open for the lazy items collection below
     void createOrder_persistsOrderAndItems() {
         OrderDTO created = orderService.createOrder(orderRequest(2));
 

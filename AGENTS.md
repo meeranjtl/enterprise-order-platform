@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 7 complete (Payment Service)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), and payment-service (:8085) are implemented; next up is Phase 8 (Order Orchestration/Saga).
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 8 complete (Order Orchestration / Saga)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085) are implemented with event-driven saga orchestration; next up is Phase 9 (Shipping & Notification).
 
 **Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
@@ -444,6 +444,104 @@ Examples:
 
 ---
 
+## Phase 8: Event-Driven Saga Orchestration (NEW!)
+
+### What's New in Phase 8
+
+**Architecture:**
+- **Kafka Event Bus** – Order, Inventory, Payment services communicate via Kafka topics
+- **Saga Orchestrator** – Order Service coordinates multi-service workflows (Order → Inventory → Payment)
+- **Outbox Pattern** – Guarantees exactly-once event delivery (DB + Kafka atomicity)
+- **DLQ Handling** – Dead-letter topics for failed events with automatic retry + logging
+
+**Key Components:**
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **Outbox Pattern** | `shared-library/src/main/java/com/enterprise/order/shared/outbox/` | Transactional outbox entity, poller, publisher |
+| **Event DTOs** | `shared-library/src/main/java/com/enterprise/order/shared/events/` | OrderCreatedEvent, InventoryReservedEvent, PaymentProcessedEvent |
+| **Kafka Config** | `shared-library/src/main/java/com/enterprise/order/shared/config/KafkaConfig.java` | Topic beans (6 topics), consumer error handler, retry policy |
+| **DLQ Handler** | `shared-library/src/main/java/com/enterprise/order/shared/messaging/DeadLetterQueueHandler.java` | Logs failed events from DLQ topics |
+| **Saga Orchestrator** | `order-service/src/main/java/com/enterprise/order/order/saga/OrderSagaOrchestrator.java` | Listens to inventory-events & payment-events, updates order status |
+| **Consumers** | `*/messaging/*EventConsumer.java` | OrderEventConsumer, PaymentEventConsumer, InventoryEventConsumer |
+
+**Kafka Topics:**
+- `order-events` – OrderCreatedEvent
+- `inventory-events` – InventoryReservedEvent, InventoryReleasedEvent
+- `payment-events` – PaymentProcessedEvent, PaymentRefundedEvent
+- `*-dlq` – Dead-letter topics for each (auto-created, auto-consumed for logging)
+
+**Saga Flow:**
+```
+1. Order created → OrderService.createOrder() stores OrderCreatedEvent in outbox
+2. OutboxPoller publishes to order-events topic
+3. InventoryService consumes OrderCreatedEvent, reserves stock, publishes InventoryReservedEvent
+4. PaymentService consumes InventoryReservedEvent, processes payment, publishes PaymentProcessedEvent
+5. OrderService saga consumer listens to payment-events, updates order status to CONFIRMED
+6. On failure: compensation flows trigger (inventory release, refund)
+```
+
+**Idempotency:**
+- Order consumer uses `orderId:productId` composite key
+- Payment & inventory use database checks (double-payment prevention, duplicate reserve detection)
+- Consumers marked with `@Transactional` to ensure atomic status updates
+
+**Testing:**
+- 13 passing unit + integration tests (EventSerializationTest, KafkaEventIntegrationTest)
+- Test happy path (Order → Inventory → Payment → Confirm)
+- Test failure path (payment failure → inventory compensation)
+- Verify event formats for Kafka transmission
+
+### When to Use Phase 8 Patterns
+
+✅ **Event Producers** – Call `outboxPublisher.storeEvent()` inside `@Transactional` business logic  
+✅ **Event Consumers** – Use `@KafkaListener` with groupId; implement idempotency checks  
+✅ **Saga Coordination** – Update aggregate root status based on consumed events  
+✅ **Error Handling** – Catch exceptions in listeners, log & route to DLQ (automatic via ErrorHandler)  
+❌ **NOT** – Direct HTTP calls between services (use Kafka events instead, Phase 8+)
+
+### Infrastructure Setup
+
+```yaml
+# docker-compose.yml includes:
+services:
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+  
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    ports:
+      - "8090:8081"   # host 8081 belongs to customer-service; registry stays 8081 inside the network
+  
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8888:8080"
+```
+
+Topics auto-created at service startup via `KafkaConfig` bean (not auto-provisioned by Kafka).
+
+### Troubleshooting Phase 8
+
+**Issue:** Events not flowing through Kafka  
+→ Check Kafka is running: `docker compose ps`  
+→ Check topics exist: `docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list`  
+→ Check consumer logs for deserialization errors  
+
+**Issue:** Duplicate processing  
+→ Verify consumer is idempotent (check `OrderEventConsumer.handleOrderCreated()`)  
+→ Check idempotency key format (orderId:productId)
+
+**Issue:** DLQ pile-up  
+→ Check service logs for the actual exception  
+→ Manually replay from DLQ (ops task, manual via Kafka console)
+
+---
+
 **Last Updated:** August 2, 2026
-**For Phase:** Phase 7 complete (Payment Service — payment processing, transaction audit, idempotency, order integration)
-**Next Phase:** Order Orchestration/Saga (Phase 8) — coordinates payment, inventory, and shipping; see PHASE_QUICK_REFERENCE.md
+**For Phase:** Phase 8 complete (Order Orchestration / Saga — event-driven saga, Kafka topics, outbox, DLQ, orchestrator)
+**Next Phase:** Shipping & Notification (Phase 9) — adds fulfillment workflow, email/SMS notifications, async request/reply pattern

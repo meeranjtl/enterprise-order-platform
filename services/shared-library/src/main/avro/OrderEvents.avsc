@@ -1,0 +1,57 @@
+{
+  "namespace": "com.enterprise.order.shared.events.order",
+  "type": "record",
+  "name": "OrderCreatedEvent",
+  "fields": [
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Unique order identifier"
+    },
+    {
+      "name": "orderNumber",
+      "type": "string",
+      "doc": "Customer-facing order number"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "Customer identifier"
+    },
+    {
+      "name": "totalAmount",
+      "type": "double",
+      "doc": "Total order amount in currency units"
+    },
+    {
+      "name": "orderItems",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OrderItem",
+          "fields": [
+            {
+              "name": "productId",
+              "type": "string"
+            },
+            {
+              "name": "quantity",
+              "type": "int"
+            },
+            {
+              "name": "unitPrice",
+              "type": "double"
+            }
+          ]
+        }
+      },
+      "doc": "List of items in the order"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "doc": "Event timestamp in milliseconds (epoch)"
+    }
+  ]
+}

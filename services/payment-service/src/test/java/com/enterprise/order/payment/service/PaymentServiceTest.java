@@ -12,6 +12,7 @@ import com.enterprise.order.payment.entity.PaymentStatus;
 import com.enterprise.order.payment.gateway.PaymentGateway;
 import com.enterprise.order.payment.gateway.PaymentResult;
 import com.enterprise.order.payment.repository.PaymentRepository;
+import com.enterprise.order.shared.outbox.OutboxPublisher;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,9 @@ class PaymentServiceTest {
 
     @Mock
     private PaymentGateway gateway;
+
+    @Mock
+    private OutboxPublisher outboxPublisher;
 
     @InjectMocks
     private PaymentService service;
@@ -51,8 +55,13 @@ class PaymentServiceTest {
     }
 
     private Payment payment() {
+        // Phase 8: saveAndPublish builds a PaymentProcessedEvent from the saved entity,
+        // so orderId/customerId/amount must be populated.
         return Payment.builder()
                 .id(1L)
+                .orderId(4L)
+                .customerId(5L)
+                .amount(new BigDecimal("10.00"))
                 .retryCount(0)
                 .status(PaymentStatus.PENDING)
                 .build();

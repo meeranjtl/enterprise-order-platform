@@ -3,7 +3,10 @@ package com.enterprise.order.gateway;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
@@ -39,6 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Testcontainers(disabledWithoutDocker = true)
+// Fixed ordering: the rate-limit test deliberately drains the shared Redis token bucket
+// (keyed by client IP), so it must run last or the routing tests intermittently see 429s.
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class GatewayRoutingIT {
 
     // WireMock must be running before @DynamicPropertySource resolves the port placeholders,
@@ -100,6 +106,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(1)
     void routesRequestToCustomerService() {
         String body = client.get().uri("/api/v1/customers/1")
                 .retrieve()
@@ -111,6 +118,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(2)
     void routesRequestToProductService() {
         String body = client.get().uri("/api/v1/products/1")
                 .retrieve()
@@ -122,6 +130,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(3)
     void unknownRouteReturns404WithRouteNotFoundEnvelope() {
         var response = client.get().uri("/api/v1/unknown")
                 .exchangeToMono(r -> r.bodyToMono(String.class)
@@ -135,6 +144,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(4)
     void propagatesCorrelationIdToDownstreamService() {
         client.get().uri("/api/v1/customers/1")
                 .header("X-Correlation-Id", "it-corr-123")
@@ -147,6 +157,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(5)
     void echoesProvidedCorrelationIdInResponse() {
         String echoed = client.get().uri("/api/v1/customers/1")
                 .header("X-Correlation-Id", "echo-me-456")
@@ -157,6 +168,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(6)
     void generatesCorrelationIdWhenNoneProvided() {
         String generated = client.get().uri("/api/v1/customers/1")
                 .exchangeToMono(r -> Mono.justOrEmpty(r.headers().asHttpHeaders().getFirst("X-Correlation-Id")))
@@ -166,6 +178,7 @@ class GatewayRoutingIT {
     }
 
     @Test
+    @Order(7) // must stay last: drains the shared Redis token bucket
     void rateLimitExceededReturns429WithJsonEnvelope() {
         // default-filters allow a burst of 20 (replenish 10/s). 40 rapid calls from the
         // same client must trip the limiter at least once.

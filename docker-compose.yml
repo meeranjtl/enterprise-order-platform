@@ -27,10 +27,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=customer
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8081:8081"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -44,10 +47,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=product
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8082:8082"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -63,10 +69,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       ORDER_CLIENTS_CUSTOMER_SERVICE_URL: http://customer-service:8081
       ORDER_CLIENTS_PRODUCT_SERVICE_URL: http://product-service:8082
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8083:8083"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       customer-service:
         condition: service_started
@@ -84,11 +93,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=inventory
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Gates only the pre-Phase-8 placeholder consumer. The Phase 8 saga consumers
+      # (order-events / payment-events) and the outbox poller are always active.
       INVENTORY_KAFKA_ENABLED: "false"
     ports:
       - "8084:8084"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -102,11 +116,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=payment
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Gates only the legacy direct Kafka publisher. Phase 8 publishes payment events
+      # through the transactional outbox, so this stays disabled to avoid double-publishing.
       PAYMENT_KAFKA_ENABLED: "false"
     ports:
       - "8085:8085"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -126,6 +145,88 @@ services:
     networks:
       - enterprise-order-network
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: enterprise-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - enterprise-order-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: enterprise-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    # cp-kafka ships the CLI wrappers without the .sh extension on PATH
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server=localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - enterprise-order-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: enterprise-schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    # Host port 8081 is owned by customer-service, so the registry is exposed on 8090.
+    # Inside the compose network it still listens on 8081 (http://schema-registry:8081).
+    ports:
+      - "8090:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_DEBUG: "false"
+    # The registry can take ~60s to boot (waits for Kafka's _schemas topic),
+    # longer than interval*retries — the start_period keeps Docker from marking
+    # it unhealthy during that initial window.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - enterprise-order-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: enterprise-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8888:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - enterprise-order-network
+
   gateway:
     build:
       context: .
@@ -137,6 +238,10 @@ services:
       - "8080:8080"
     depends_on:
       redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
       customer-service:
         condition: service_started

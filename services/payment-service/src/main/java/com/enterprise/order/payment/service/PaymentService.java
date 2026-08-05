@@ -11,6 +11,9 @@ import com.enterprise.order.payment.repository.PaymentRepository;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
 import java.time.LocalDateTime;
+
+import com.enterprise.order.shared.outbox.OutboxPublisher;
+import com.enterprise.order.shared.events.PaymentProcessedEvent;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -28,6 +31,7 @@ public class PaymentService {
     private final PaymentRepository repository;
     private final PaymentGateway gateway;
     private final ObjectProvider<PaymentEventPublisher> publisher;
+    private final OutboxPublisher outboxPublisher;
 
     public PaymentDTO create(CreatePaymentRequest request) {
         Payment payment = Payment.builder()
@@ -118,6 +122,22 @@ public class PaymentService {
 
     private PaymentDTO saveAndPublish(Payment payment) {
         PaymentDTO response = toDto(repository.save(payment));
+
+        // Store event in outbox for reliable publishing
+        PaymentProcessedEvent event = PaymentProcessedEvent.builder()
+                .paymentId(payment.getId().toString())
+                .orderId(payment.getOrderId().toString())
+                .customerId(payment.getCustomerId().toString())
+                .amount(payment.getAmount().doubleValue())
+                .status(PaymentProcessedEvent.PaymentStatus.valueOf(payment.getStatus().name()))
+                .transactionId(payment.getTransactionId())
+                .failureReason(payment.getFailureReason())
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        outboxPublisher.storeEvent(payment.getId().toString(), PaymentProcessedEvent.EVENT_TYPE, PaymentProcessedEvent.TOPIC, payment.getId().toString(), event);
+
+        // Also publish directly if Kafka publisher is available (backward compatibility)
         if (publisher != null) {
             Optional.ofNullable(publisher.getIfAvailable())
                     .ifPresent(eventPublisher -> eventPublisher.publish(response));

@@ -1,0 +1,59 @@
+{
+  "namespace": "com.enterprise.order.shared.events.payment",
+  "type": "record",
+  "name": "PaymentProcessedEvent",
+  "fields": [
+    {
+      "name": "paymentId",
+      "type": "string",
+      "doc": "Unique payment identifier"
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Order identifier"
+    },
+    {
+      "name": "customerId",
+      "type": "string",
+      "doc": "Customer identifier"
+    },
+    {
+      "name": "amount",
+      "type": "double",
+      "doc": "Payment amount in currency units"
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "PaymentStatus",
+        "symbols": ["PENDING", "COMPLETED", "FAILED", "REFUNDED"]
+      },
+      "doc": "Payment status"
+    },
+    {
+      "name": "transactionId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "External payment gateway transaction ID"
+    },
+    {
+      "name": "failureReason",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Reason if payment failed"
+    },
+    {
+      "name": "createdAt",
+      "type": "long",
+      "doc": "Event timestamp in milliseconds (epoch)"
+    }
+  ]
+}

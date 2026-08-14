@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 8 complete (Order Orchestration / Saga)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085) are implemented with event-driven saga orchestration; next up is Phase 9 (Shipping & Notification).
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 9 complete (Shipping & Notification)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085), shipping-service (:8086), notification-service (:8087) are implemented with event-driven saga orchestration through fulfillment; next up is Phase 10 (Analytics & Reporting).
 
 **Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
@@ -37,8 +37,8 @@ React UI (Phase 13) → API Gateway (Spring Cloud Gateway) → 9 Microservices
 - **order-service**: Order processing (Phase 5) ✅
 - **inventory-service**: Stock management (Phase 6) ✅
 - **payment-service**: Payment handling (Phase 7) ✅
-- **shipping-service**: Fulfillment (Phase 9)
-- **notification-service**: Email/SMS (Phase 9)
+- **shipping-service**: Fulfillment (Phase 9) ✅
+- **notification-service**: Email/SMS (Phase 9) ✅
 - **analytics-service**: Metrics/reporting (Phase 10)
 
 **Critical Design Decision:** All services depend on `shared-library` for common code. When adding cross-cutting concerns (exceptions, DTOs, validators), add to `shared-library` first, then services can consume.
@@ -542,6 +542,74 @@ Topics auto-created at service startup via `KafkaConfig` bean (not auto-provisio
 
 ---
 
-**Last Updated:** August 2, 2026
-**For Phase:** Phase 8 complete (Order Orchestration / Saga — event-driven saga, Kafka topics, outbox, DLQ, orchestrator)
-**Next Phase:** Shipping & Notification (Phase 9) — adds fulfillment workflow, email/SMS notifications, async request/reply pattern
+## Phase 9: Shipping & Notification (NEW!)
+
+### What's New in Phase 9
+
+**Architecture:**
+- **Shipping Service (:8086, schema `shipping`)** – consumes `payment-events`
+  (COMPLETED → idempotent shipment), async request/reply packing-list exchange
+  with Inventory, `PENDING → SHIPPED → DELIVERED`
+- **Notification Service (:8087, schema `notification`)** – consumes
+  order/payment/shipping events (group `notification-service-group`),
+  simulated EMAIL/SMS with DB audit rows (unique per order+type+channel),
+  publishes `NotificationSentEvent` via outbox
+- **Saga completion** – `PAYMENT_APPROVED → SHIPPED → COMPLETED`
+
+**Key Components:**
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **PaymentEventConsumer** | `shipping-service/.../messaging/PaymentEventConsumer.java` | COMPLETED payment → create shipment |
+| **PackingListReplyConsumer** | `shipping-service/.../messaging/PackingListReplyConsumer.java` | Inventory reply → tracking number, SHIPPED |
+| **PackingListRequestConsumer** | `inventory-service/.../messaging/PackingListRequestConsumer.java` | Replies with packing list (outbox, idempotent) |
+| **NotificationEventListener** | `notification-service/.../messaging/NotificationEventListener.java` | Event→notification mapping, header dispatch |
+| **Saga shipping listener** | `order-service/.../saga/OrderSagaOrchestrator.java` | `eventType` header → SHIPPED / COMPLETED |
+
+**New Kafka Topics (8):** `shipping-events` (+dlq), `notification-events` (+dlq),
+`inventory-shipping-request-events` (+dlq), `inventory-shipping-reply-events` (+dlq).
+`shipping-events` carries two event types — consumers dispatch on the `eventType`
+header now written by `OutboxPublisher`. Kafka message key = orderId everywhere.
+
+**Event-to-Notification Mapping:**
+
+| Event | Type | Channels |
+|---|---|---|
+| OrderCreated | ORDER_CONFIRMED | EMAIL |
+| PaymentProcessed (COMPLETED) | PAYMENT_RECEIVED | EMAIL |
+| ShipmentCreated | SHIPPED | EMAIL + SMS |
+| ShipmentDelivered | DELIVERED | EMAIL + SMS |
+
+### Phase 9 Gotchas (Learned During Validation)
+
+❌ **Do not use `MappingConstants.ComponentModel.SPRING`** in `@Mapper` —
+with this repo's Lombok/MapStruct processor setup it produced mapper impls
+whose bean registration silently failed at runtime ("No qualifying bean of
+type ...Mapper", service won't start). Always use the literal:
+`@Mapper(componentModel = "spring")`.
+
+❌ **SHIPPED is not terminal** — the order state machine allows
+`SHIPPED → COMPLETED` only; `TERMINAL_STATUSES` is
+`{CANCELLED, FAILED, COMPLETED}` (regression tests guard this).
+
+✅ **Docker healthchecks** – kafka CLI probe needs `timeout: 20s`,
+schema-registry needs `start_period: 150s`+ under cold-start load, service
+Dockerfile HEALTHCHECKs carry `--start-period=180s` (JVMs take ~120s).
+Keep these windows when adding services.
+
+✅ **Test class file names must match class names** – Surefire includes are
+`**/*Test.java`, `**/*Tests.java`, `**/*IT.java`; repo convention is
+`XxxIT.java` containing `class XxxIT` (see OrderServiceIT, CustomerServiceIT).
+
+### Validation (Aug 14, 2026)
+
+- `mvn clean install` green — 137 tests, 0 failures (11 modules)
+- `docker compose up -d --build` — all containers healthy
+- E2E via gateway: order auto-flows to SHIPPED (~20s), deliver endpoint →
+  COMPLETED; all 4 notification types recorded with correct channels
+
+---
+
+**Last Updated:** August 14, 2026
+**For Phase:** Phase 9 complete (Shipping & Notification — fulfillment saga completion, async request/reply packing list, EMAIL/SMS notifications, eventType header dispatch)
+**Next Phase:** Analytics & Reporting (Phase 10) — analytics-service consuming the event bus for metrics/reporting

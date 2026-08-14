@@ -3,9 +3,8 @@ package com.enterprise.order.product.mapper;
 import com.enterprise.order.product.dto.CategoryDTO;
 import com.enterprise.order.product.entity.Category;
 import org.mapstruct.Mapper;
-import org.mapstruct.MappingConstants;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+@Mapper(componentModel = "spring")
 public interface CategoryMapper {
 
     default CategoryDTO toDTO(Category category) {

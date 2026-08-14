@@ -44,14 +44,16 @@ public class OrderService {
 
     private static final DateTimeFormatter ORDER_DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    // Phase 9: SHIPPED is NOT terminal — the delivery step advances it to COMPLETED.
     private static final Set<OrderStatus> TERMINAL_STATUSES = EnumSet.of(
-            OrderStatus.CANCELLED, OrderStatus.FAILED, OrderStatus.SHIPPED, OrderStatus.COMPLETED);
+            OrderStatus.CANCELLED, OrderStatus.FAILED, OrderStatus.COMPLETED);
 
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = new EnumMap<>(OrderStatus.class);
 
     static {
         // Phase 8 saga path: PENDING ->(inventory reserved)-> PAYMENT_PENDING
         //   ->(payment completed)-> PAYMENT_APPROVED / ->(payment failed)-> PAYMENT_REJECTED.
+        // Phase 9 extends it: PAYMENT_APPROVED -> SHIPPED -> COMPLETED.
         // The manual path through VALIDATED is kept for API-driven flows.
         ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.VALIDATED, OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED));
         ALLOWED_TRANSITIONS.put(OrderStatus.VALIDATED, EnumSet.of(OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED));

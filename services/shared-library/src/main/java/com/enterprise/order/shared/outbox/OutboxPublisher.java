@@ -60,6 +60,9 @@ public class OutboxPublisher {
             .withPayload(event.getPayload())
             .setHeader(KafkaHeaders.TOPIC, event.getKafkaTopic())
             .setHeader("kafka_messageKey", event.getKafkaKey())
+            // Phase 9: lets consumers dispatch when a topic carries multiple event
+            // types (e.g. shipping-events carries ShipmentCreated + ShipmentDelivered).
+            .setHeader("eventType", event.getEventType())
             .build();
 
         kafkaTemplate.send(message);

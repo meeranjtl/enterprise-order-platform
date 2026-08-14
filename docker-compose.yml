@@ -130,6 +130,46 @@ services:
     networks:
       - enterprise-order-network
 
+  shipping-service:
+    build:
+      context: .
+      dockerfile: services/shipping-service/Dockerfile
+    container_name: enterprise-shipping-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=shipping
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: enterprise-notification-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=notification
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
   redis:
     image: redis:7-alpine
     container_name: enterprise-redis
@@ -175,12 +215,15 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-    # cp-kafka ships the CLI wrappers without the .sh extension on PATH
+    # cp-kafka ships the CLI wrappers without the .sh extension on PATH.
+    # The CLI is a JVM tool: startup alone can exceed 5s while the broker is
+    # busy (consumer rebalances at platform startup), so allow a 20s timeout.
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server=localhost:9092"]
-      interval: 10s
-      timeout: 5s
+      interval: 15s
+      timeout: 20s
       retries: 5
+      start_period: 60s
     networks:
       - enterprise-order-network
 
@@ -199,15 +242,15 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
       SCHEMA_REGISTRY_DEBUG: "false"
-    # The registry can take ~60s to boot (waits for Kafka's _schemas topic),
-    # longer than interval*retries — the start_period keeps Docker from marking
-    # it unhealthy during that initial window.
+    # The registry can take ~3min to boot on a loaded Docker Desktop (waits for
+    # Kafka's _schemas topic while every service connects at once) — the
+    # start_period keeps Docker from marking it unhealthy during that window.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 90s
+      retries: 8
+      start_period: 150s
     networks:
       - enterprise-order-network
 
@@ -252,6 +295,10 @@ services:
       inventory-service:
         condition: service_started
       payment-service:
+        condition: service_started
+      shipping-service:
+        condition: service_started
+      notification-service:
         condition: service_started
     networks:
       - enterprise-order-network

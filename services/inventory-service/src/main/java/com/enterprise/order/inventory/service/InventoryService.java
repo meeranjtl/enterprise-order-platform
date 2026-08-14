@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.enterprise.order.shared.outbox.OutboxPublisher;
 import com.enterprise.order.shared.events.InventoryReservedEvent;
+import com.enterprise.order.shared.events.PackingListProvidedEvent;
+import com.enterprise.order.shared.events.PackingListRequestedEvent;
 
 @Service
 @RequiredArgsConstructor
@@ -96,6 +98,40 @@ public class InventoryService {
                     request.getQuantity(),
                     request.getReason());
         });
+    }
+
+    /**
+     * Async request/reply pattern (Phase 9): shipping-service asks for the packing
+     * list of a paid order. We reply with the items reserved for that order.
+     *
+     * Idempotency is handled downstream: shipping applies the reply only while the
+     * shipment is PENDING, so a redelivered request simply regenerates an identical
+     * reply that shipping ignores. No inventory state is mutated here.
+     */
+    public void providePackingList(PackingListRequestedEvent request) {
+        Long orderId = Long.valueOf(request.getOrderId());
+
+        java.util.List<InventoryTransaction> reserves =
+                transactionRepository.findByOrderIdAndType(orderId, TransactionType.RESERVE);
+
+        java.util.List<PackingListProvidedEvent.PackingItem> items = reserves.stream()
+                .map(tx -> PackingListProvidedEvent.PackingItem.builder()
+                        .productId(tx.getProductId().toString())
+                        .quantity(tx.getQuantity())
+                        .build())
+                .toList();
+
+        PackingListProvidedEvent reply = PackingListProvidedEvent.builder()
+                .requestId(request.getRequestId())
+                .orderId(request.getOrderId())
+                .shipmentId(request.getShipmentId())
+                .items(items)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        // Key by orderId so all replies for the same order land on one partition in order.
+        outboxPublisher.storeEvent(orderId.toString(), PackingListProvidedEvent.EVENT_TYPE,
+                PackingListProvidedEvent.TOPIC, orderId.toString(), reply);
     }
 
     private InventoryDTO process(String operation, String idempotencyKey, Work work) {

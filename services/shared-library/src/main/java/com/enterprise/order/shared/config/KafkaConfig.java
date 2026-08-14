@@ -8,8 +8,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -82,10 +83,83 @@ public class KafkaConfig {
                 .build();
     }
 
-    // Consumer Error Handler with DLQ routing and retry policy
+    // Shipping Event Topics (Phase 9)
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler() {
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(new FixedBackOff(1000L, 3L));
+    public NewTopic shippingEventsTopic() {
+        return TopicBuilder.name("shipping-events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic shippingEventsDlqTopic() {
+        return TopicBuilder.name("shipping-events-dlq")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    // Notification Event Topics (Phase 9)
+    @Bean
+    public NewTopic notificationEventsTopic() {
+        return TopicBuilder.name("notification-events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic notificationEventsDlqTopic() {
+        return TopicBuilder.name("notification-events-dlq")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    // Async Request/Reply Topics (Phase 9): shipping asks inventory for the
+    // packing list; inventory replies on the reply topic.
+    @Bean
+    public NewTopic inventoryShippingRequestEventsTopic() {
+        return TopicBuilder.name("inventory-shipping-request-events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic inventoryShippingRequestEventsDlqTopic() {
+        return TopicBuilder.name("inventory-shipping-request-events-dlq")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic inventoryShippingReplyEventsTopic() {
+        return TopicBuilder.name("inventory-shipping-reply-events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic inventoryShippingReplyEventsDlqTopic() {
+        return TopicBuilder.name("inventory-shipping-reply-events-dlq")
+                .partitions(1)
+                .replicas(1)
+                .build();
+    }
+
+    // Consumer Error Handler with DLQ routing and retry policy.
+    // After the retry budget is exhausted the DeadLetterPublishingRecoverer routes
+    // the record to <original-topic>-dlq (default destination resolver), where the
+    // DeadLetterQueueHandler logs it for manual replay.
+    @Bean
+    @SuppressWarnings("rawtypes")
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
         errorHandler.addRetryableExceptions(Exception.class);
         return errorHandler;
     }

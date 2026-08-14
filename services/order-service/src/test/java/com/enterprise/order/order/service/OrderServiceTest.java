@@ -204,6 +204,28 @@ class OrderServiceTest {
     }
 
     @Test
+    void updateStatus_shippedToCompleted() {
+        // Phase 9: delivery closes the saga — SHIPPED must not be terminal.
+        Order order = Order.builder().id(100L).status(OrderStatus.SHIPPED).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+        when(orderMapper.toDTO(order)).thenReturn(OrderDTO.builder().id(100L).status("COMPLETED").build());
+
+        OrderDTO result = orderService.updateStatus(100L, "COMPLETED");
+
+        assertEquals("COMPLETED", result.getStatus());
+        assertEquals(OrderStatus.COMPLETED, order.getStatus());
+    }
+
+    @Test
+    void updateStatus_shippedOnlyAllowsCompleted() {
+        Order order = Order.builder().id(100L).status(OrderStatus.SHIPPED).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+
+        assertThrows(BadRequestException.class, () -> orderService.updateStatus(100L, "CANCELLED"));
+    }
+
+    @Test
     void cancelOrder_terminalStatusRejected() {
         Order order = Order.builder().id(100L).status(OrderStatus.COMPLETED).build();
         when(orderRepository.findById(100L)).thenReturn(Optional.of(order));

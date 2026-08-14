@@ -139,4 +139,110 @@ class EventSerializationTest {
         assertNull(deserialized.getCustomerId());
         assertNull(deserialized.getTotalAmount());
     }
+
+    // --- Phase 9 events ---
+
+    @Test
+    void testPackingListRequestedEventSerialization() throws Exception {
+        PackingListRequestedEvent event = PackingListRequestedEvent.builder()
+                .requestId("REQ1")
+                .orderId("ORDER1")
+                .shipmentId("SHIP1")
+                .customerId("CUST1")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        PackingListRequestedEvent deserialized =
+                objectMapper.readValue(objectMapper.writeValueAsString(event), PackingListRequestedEvent.class);
+
+        assertEquals("REQ1", deserialized.getRequestId());
+        assertEquals("ORDER1", deserialized.getOrderId());
+        assertEquals("SHIP1", deserialized.getShipmentId());
+        assertEquals("CUST1", deserialized.getCustomerId());
+        assertEquals(PackingListRequestedEvent.TOPIC, "inventory-shipping-request-events");
+    }
+
+    @Test
+    void testPackingListProvidedEventSerialization() throws Exception {
+        PackingListProvidedEvent event = PackingListProvidedEvent.builder()
+                .requestId("REQ1")
+                .orderId("ORDER1")
+                .shipmentId("SHIP1")
+                .items(Arrays.asList(
+                        PackingListProvidedEvent.PackingItem.builder().productId("PROD1").quantity(2).build(),
+                        PackingListProvidedEvent.PackingItem.builder().productId("PROD2").quantity(5).build()))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        PackingListProvidedEvent deserialized =
+                objectMapper.readValue(objectMapper.writeValueAsString(event), PackingListProvidedEvent.class);
+
+        assertEquals("ORDER1", deserialized.getOrderId());
+        assertEquals(2, deserialized.getItems().size());
+        assertEquals("PROD1", deserialized.getItems().get(0).getProductId());
+        assertEquals(5, deserialized.getItems().get(1).getQuantity());
+        assertEquals(PackingListProvidedEvent.TOPIC, "inventory-shipping-reply-events");
+    }
+
+    @Test
+    void testShipmentCreatedEventSerialization() throws Exception {
+        ShipmentCreatedEvent event = ShipmentCreatedEvent.builder()
+                .shipmentId("SHIP1")
+                .orderId("ORDER1")
+                .customerId("CUST1")
+                .trackingNumber("TRK-ABC123")
+                .shippedAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        ShipmentCreatedEvent deserialized =
+                objectMapper.readValue(objectMapper.writeValueAsString(event), ShipmentCreatedEvent.class);
+
+        assertEquals("SHIP1", deserialized.getShipmentId());
+        assertEquals("TRK-ABC123", deserialized.getTrackingNumber());
+        assertEquals("ORDER1", deserialized.getOrderId());
+        assertEquals(ShipmentCreatedEvent.EVENT_TYPE, "ShipmentCreated");
+        assertEquals(ShipmentCreatedEvent.TOPIC, "shipping-events");
+    }
+
+    @Test
+    void testShipmentDeliveredEventSerialization() throws Exception {
+        ShipmentDeliveredEvent event = ShipmentDeliveredEvent.builder()
+                .shipmentId("SHIP1")
+                .orderId("ORDER1")
+                .trackingNumber("TRK-ABC123")
+                .deliveredAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        ShipmentDeliveredEvent deserialized =
+                objectMapper.readValue(objectMapper.writeValueAsString(event), ShipmentDeliveredEvent.class);
+
+        assertEquals("SHIP1", deserialized.getShipmentId());
+        assertEquals("TRK-ABC123", deserialized.getTrackingNumber());
+        assertEquals(ShipmentDeliveredEvent.EVENT_TYPE, "ShipmentDelivered");
+    }
+
+    @Test
+    void testNotificationSentEventSerialization() throws Exception {
+        NotificationSentEvent event = NotificationSentEvent.builder()
+                .notificationId("NOTIF1")
+                .orderId("ORDER1")
+                .type("SHIPPED")
+                .channel("EMAIL")
+                .recipient("customer-1@example.com")
+                .status("SENT")
+                .sentAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        NotificationSentEvent deserialized =
+                objectMapper.readValue(objectMapper.writeValueAsString(event), NotificationSentEvent.class);
+
+        assertEquals("NOTIF1", deserialized.getNotificationId());
+        assertEquals("SHIPPED", deserialized.getType());
+        assertEquals("EMAIL", deserialized.getChannel());
+        assertEquals("customer-1@example.com", deserialized.getRecipient());
+        assertEquals(NotificationSentEvent.TOPIC, "notification-events");
+    }
 }

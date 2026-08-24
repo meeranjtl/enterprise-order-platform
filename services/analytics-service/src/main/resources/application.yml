@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: analytics-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=analytics
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    schemas: analytics
+    default-schema: analytics
+    table: flyway_schema_history_analytics
+    create-schemas: true
+  kafka:
+    bootstrap-servers: localhost:9092
+
+server:
+  port: 8088
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info

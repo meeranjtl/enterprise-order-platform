@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 9 complete (Shipping & Notification)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085), shipping-service (:8086), notification-service (:8087) are implemented with event-driven saga orchestration through fulfillment; next up is Phase 10 (Analytics & Reporting).
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 10 complete (Analytics & Reporting)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085), shipping-service (:8086), notification-service (:8087), analytics-service (:8088) are implemented with event-driven saga orchestration through fulfillment plus a read-model analytics layer; next up is Phase 11 (Observability).
 
 **Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
@@ -39,7 +39,7 @@ React UI (Phase 13) → API Gateway (Spring Cloud Gateway) → 9 Microservices
 - **payment-service**: Payment handling (Phase 7) ✅
 - **shipping-service**: Fulfillment (Phase 9) ✅
 - **notification-service**: Email/SMS (Phase 9) ✅
-- **analytics-service**: Metrics/reporting (Phase 10)
+- **analytics-service**: Metrics/reporting (Phase 10) ✅
 
 **Critical Design Decision:** All services depend on `shared-library` for common code. When adding cross-cutting concerns (exceptions, DTOs, validators), add to `shared-library` first, then services can consume.
 
@@ -610,6 +610,96 @@ Keep these windows when adding services.
 
 ---
 
-**Last Updated:** August 14, 2026
-**For Phase:** Phase 9 complete (Shipping & Notification — fulfillment saga completion, async request/reply packing list, EMAIL/SMS notifications, eventType header dispatch)
-**Next Phase:** Analytics & Reporting (Phase 10) — analytics-service consuming the event bus for metrics/reporting
+## Phase 10: Analytics & Reporting (NEW!)
+
+### What's New in Phase 10
+
+**Architecture:**
+- **Analytics Service (:8088, schema `analytics`)** – the platform's first
+  pure read-model consumer: never joins the order saga or publishes events,
+  only aggregates `order-events`/`payment-events`/`shipping-events` (group
+  `analytics-service-group`) into queryable business metrics
+- **Fact-table + full-recompute pattern** – every event first upserts a
+  unique-constrained fact row (`order_facts`, `order_item_facts`,
+  `order_revenue`), then the affected `daily_metrics`/`product_metrics`/
+  `fulfillment_metrics` rollups are **recomputed from facts**, never
+  incremented — at-least-once Kafka redelivery can never double-count
+- **Reconciliation sweep** – `MetricsReconciliationJob` (`@Scheduled`, 10s
+  default interval, 3-day lookback, both configurable) periodically
+  recomputes recent rollups, healing the race where two parallel consumer
+  transactions each miss the other's uncommitted writes
+- **Report API** – `/api/v1/analytics/{daily-metrics,product-metrics,revenue,
+  customer-metrics,fulfillment-metrics,summary}`, all `BaseResponse`-wrapped,
+  date-range validated (`from <= to`, max 366 days)
+
+**Key Components:**
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **OrderEventConsumer** | `analytics-service/.../messaging/OrderEventConsumer.java` | Upserts order/item facts, recomputes daily+product rollups |
+| **PaymentEventConsumer** | `analytics-service/.../messaging/PaymentEventConsumer.java` | COMPLETED→revenue row+rollup; FAILED→failed-order rollup; REFUNDED→revenue adjustment |
+| **ShippingEventConsumer** | `analytics-service/.../messaging/ShippingEventConsumer.java` | `eventType` header dispatch → fulfillment timings |
+| **MetricsAggregationService** | `analytics-service/.../service/MetricsAggregationService.java` | Orchestrates facts→recompute; `reconcileRecentMetrics(...)` |
+| **MetricsReconciliationJob** | `analytics-service/.../service/MetricsReconciliationJob.java` | Scheduled sweep calling the above |
+| **AnalyticsReportService** | `analytics-service/.../service/AnalyticsReportService.java` | Range queries, sorting, top-N, lifetime summary |
+
+**No new Kafka topics** — Phase 10 only consumes the existing 4 primary
+topics from Phases 8–9; no event schema changes.
+
+**Product metrics are ID-only** (no `productName`) — `OrderCreatedEvent.OrderItem`
+doesn't carry a name and analytics-service makes no synchronous HTTP calls to
+other services by design (event-sourced only). Deferred to the Phase 13 UI to
+enrich via product-service.
+
+### Phase 10 Gotchas (Learned During Implementation & Validation)
+
+❌ **Never increment aggregate counters from events** — anchor every event in
+a unique-constrained fact table, then recompute rollups from facts. Same
+lesson as Phase 9's outbox idempotency, applied to read-side aggregation.
+
+❌ **Spring Data JPA aggregate JPQL `SELECT`s always return `List<Object[]>`**,
+even for a guaranteed single row — declaring the repository method to return
+a bare `Object[]` produces a nested-array `ClassCastException` at runtime.
+Invisible to unit tests that mock the repository; only surfaces under a real
+query. Always declare `List<Object[]>` for aggregate queries.
+
+❌ **SQL `SUM(CASE...)` over zero matching rows is `NULL`, not `0`** — wrap
+every conditional `SUM` in `COALESCE(..., 0)` unless the column should
+legitimately render as JSON `null` (e.g. an `AVG` with no contributing rows).
+
+❌ **`localhost:9092` vs `localhost:9094`** — a JVM running directly on the
+host (not in a container) must use `localhost:9094`
+(`KAFKA_ADVERTISED_LISTENERS` → `PLAINTEXT_HOST`) to reach the dev Kafka
+broker; `localhost:9092` only works from inside the compose network. Silent
+failure mode: the consumer just never receives anything, no error.
+
+❌ **Creating a product via product-service does not provision an
+inventory-service record** — an order against a freshly-created product
+fails reservation (`Inventory not found with identifier: N`) and sticks at
+`PENDING`. Pre-existing platform gap (inventory rows are seeded
+independently), not Phase 10 scope — E2E scripts must use a product with a
+seeded inventory row (id 1 or 2) or call `/api/v1/inventory/adjust` first.
+
+✅ **Gateway route wiring for a new service touches 5 places**: both
+`application.yml`/`application-docker.yml` route lists (Spring profile merge
+*replaces* list properties, so the docker profile re-declares the full
+route list), the resilience4j `circuitbreaker`/`timelimiter` instance maps
+(both), the springdoc `swagger-ui.urls` list, and `FallbackController`.
+Miss one and the failure mode is silent (route just doesn't exist) rather
+than a build error.
+
+### Validation (Aug 24, 2026)
+
+- `mvn clean install` green — 181 tests, 0 failures (11 modules, 44 new for
+  analytics-service)
+- `docker compose up -d --build` — all 14 containers healthy, including analytics-service
+- E2E via gateway: a real order (product with seeded inventory) flowed
+  `PENDING → SHIPPED → DELIVERED`; at every stage the corresponding analytics
+  endpoint reflected the change (daily-metrics on order creation, revenue on
+  payment COMPLETED, fulfillment-metrics on shipped and again on delivered)
+
+---
+
+**Last Updated:** August 24, 2026
+**For Phase:** Phase 10 complete (Analytics & Reporting — read-model event consumer, fact-table + recompute aggregation, reconciliation sweep, report API)
+**Next Phase:** Observability (Phase 11) — distributed tracing, metrics, centralized logging

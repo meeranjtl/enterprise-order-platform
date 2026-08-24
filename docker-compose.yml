@@ -170,6 +170,26 @@ services:
     networks:
       - enterprise-order-network
 
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: enterprise-analytics-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=analytics
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
   redis:
     image: redis:7-alpine
     container_name: enterprise-redis
@@ -299,6 +319,8 @@ services:
       shipping-service:
         condition: service_started
       notification-service:
+        condition: service_started
+      analytics-service:
         condition: service_started
     networks:
       - enterprise-order-network

@@ -139,12 +139,9 @@
                 <scope>test</scope>
             </dependency>
 
-            <!-- Spring Kafka Test (EmbeddedKafka) -->
-            <dependency>
-                <groupId>org.springframework.kafka</groupId>
-                <artifactId>spring-kafka-test</artifactId>
-                <scope>test</scope>
-            </dependency>
+            <!-- spring-kafka-test (EmbeddedKafka) needs no entry here: the Spring Boot
+                 BOM already manages its version. A version-less managed entry would
+                 shadow the BOM and break resolution in consuming modules. -->
         </dependencies>
     </dependencyManagement>
 

@@ -97,6 +97,16 @@ spring:
               args:
                 name: notificationService
                 fallbackUri: forward:/fallback/notification-service
+
+        - id: analytics-service
+          uri: http://localhost:8088
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: analyticsService
+                fallbackUri: forward:/fallback/analytics-service
         # Swagger aggregation: proxy each service's OpenAPI docs through the gateway
         - id: customer-service-api-docs
           uri: http://localhost:8081
@@ -147,8 +157,12 @@ spring:
           filters:
             - RewritePath=/notification-service/api-docs, /api-docs
 
-        # Future services (added as their phases land):
-        # - analytics-service    :8088  /api/v1/analytics/**
+        - id: analytics-service-api-docs
+          uri: http://localhost:8088
+          predicates:
+            - Path=/analytics-service/api-docs
+          filters:
+            - RewritePath=/analytics-service/api-docs, /api-docs
 
   data:
     redis:
@@ -188,6 +202,8 @@ springdoc:
         url: /shipping-service/api-docs
       - name: Notification Service
         url: /notification-service/api-docs
+      - name: Analytics Service
+        url: /analytics-service/api-docs
 
 logging:
   level:
@@ -221,6 +237,8 @@ resilience4j:
         baseConfig: default
       notificationService:
         baseConfig: default
+      analyticsService:
+        baseConfig: default
   # The Spring Cloud Gateway CircuitBreaker filter applies a TimeLimiter whose
   # default timeout is 1s — override explicitly or every slow call would time out.
   timelimiter:
@@ -242,4 +260,6 @@ resilience4j:
       shippingService:
         baseConfig: default
       notificationService:
+        baseConfig: default
+      analyticsService:
         baseConfig: default

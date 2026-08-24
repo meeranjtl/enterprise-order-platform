@@ -67,6 +67,13 @@ public class FallbackController {
         return buildFallback("Notification service");
     }
 
+    @RequestMapping(value = "/analytics-service", method = {
+            RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+            RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<GatewayErrorResponse> analyticsServiceFallback() {
+        return buildFallback("Analytics service");
+    }
+
     private ResponseEntity<GatewayErrorResponse> buildFallback(String service) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(GatewayErrorResponse.of(

@@ -41,6 +41,21 @@
             <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
         </dependency>
 
+        <!-- Security (Phase 12): reactive JWT resource-server validation. Not via
+             shared-library (reactive/servlet boundary) — same pattern as every other
+             Phase 11 dependency in this pom. spring-boot-starter-oauth2-resource-server
+             carries both the servlet and reactive (Nimbus*Reactive*JwtDecoder) variants;
+             WebFlux being on the classpath (via spring-cloud-starter-gateway) is what
+             makes the reactive path the one that applies here. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
         <!-- Aggregated Swagger UI (reactive variant) -->
         <dependency>
             <groupId>org.springdoc</groupId>

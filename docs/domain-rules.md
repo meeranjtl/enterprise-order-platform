@@ -60,6 +60,16 @@ All services depend on `shared-library` for common code. When adding a cross-cut
 - Missing `@Transactional` on a service method that changes state.
 - DTOs with direct `@Entity` references.
 
+## Authentication & Authorization (Phase 12)
+
+- customer-service is the platform's **only** JWT issuer. Every other service — including the gateway — validates tokens independently as a resource server (shared-library's `JwtDecoderConfig`/`SecurityConfig`, or the gateway's own duplicated reactive equivalent); authorization never requires a synchronous call back to customer-service.
+- New JWTs **must** be signed with an explicitly-pinned algorithm (`Jwts.SIG.HS256`) — `signWith(key)` alone silently picks a different HMAC variant for a long secret and breaks every decoder in the platform. See [gotchas.md](gotchas.md#phase-12--security).
+- `/api/auth/register` must never accept a client-supplied `role` — always force `CUSTOMER`. Only the seeded admin (or a manual DB change) gets `ADMIN`.
+- Role checks are `@PreAuthorize`, not filter-chain `authorizeHttpRequests()`/`authorizeExchange()` rules — the filter chain only enforces "authenticated or not" plus the public-path allowlist. When adding a new controller endpoint, decide its `@PreAuthorize` the same way the existing ones are decided: reads that don't expose another customer's data need no annotation (authenticated is enough); anything that mutates state, or reads across customers, needs `hasRole('ADMIN')` or an ownership check (`#id.toString() == authentication.name` for a path variable, or a security-bean method like `OrderSecurity.isOwner(...)` when the owning id isn't in the path).
+- `GlobalExceptionHandler` (shared-library) must have a dedicated `@ExceptionHandler(AccessDeniedException.class)` — without it, every `@PreAuthorize` denial is caught by the generic `Exception.class` handler and returns 500 instead of 403. See [gotchas.md](gotchas.md#phase-12--security).
+- Adding a public (pre-auth) endpoint means updating the `PUBLIC_PATHS`/permitted-matcher list in **both** shared-library's `SecurityConfig` (servlet services) **and** the gateway's own `SecurityConfig` (reactive) — they don't share config, same as every other reactive/servlet-boundary concern.
+- Don't verify RBAC with a `@WebMvcTest` slice test expecting a 403 — it doesn't reliably exercise `@EnableMethodSecurity`'s AOP proxying in this codebase. Verify authorization behavior via a full-context test or live E2E check instead. See [gotchas.md](gotchas.md#phase-12--security).
+
 ## Gateway route wiring (adding/changing a route)
 
 Touches **5 places**, and missing one fails silently (route just doesn't exist, no build error) rather than erroring:

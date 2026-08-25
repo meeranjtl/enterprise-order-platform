@@ -21,6 +21,9 @@ spring:
     listener:
       observation-enabled: true
 
+jwt:
+  secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+
 server:
   port: 8087
 

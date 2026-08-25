@@ -19,7 +19,8 @@ spring:
             allowCredentials: true
             maxAge: 3600
 
-      # Applied to every route: Redis-backed token bucket, keyed by client IP.
+      # Applied to every route: Redis-backed token bucket, keyed by JWT subject when
+      # present (Phase 12), else client IP (see RateLimiterConfig.jwtKeyResolver).
       # Per-endpoint tuning: add a RequestRateLimiter filter with its own
       # redis-rate-limiter.* args to an individual route (overrides this default).
       default-filters:
@@ -28,9 +29,19 @@ spring:
             redis-rate-limiter.replenishRate: 10
             redis-rate-limiter.burstCapacity: 20
             redis-rate-limiter.requestedTokens: 1
-            key-resolver: "#{@ipKeyResolver}"
+            key-resolver: "#{@jwtKeyResolver}"
 
       routes:
+        - id: auth
+          uri: http://customer-service:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: customerService
+                fallbackUri: forward:/fallback/customer-service
+
         - id: customer-service
           uri: http://customer-service:8081
           predicates:
@@ -171,6 +182,9 @@ spring:
     redis:
       host: redis
       port: 6379
+
+jwt:
+  secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
 
 server:
   port: 8080

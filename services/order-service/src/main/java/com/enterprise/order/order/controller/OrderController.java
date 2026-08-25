@@ -15,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -35,6 +36,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Create a new order")
     public ResponseEntity<BaseResponse<OrderDTO>> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         log.info("POST /api/v1/orders - Creating order");
@@ -45,6 +47,7 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @orderSecurity.isOwner(#id, authentication)")
     @Operation(summary = "Get order by ID")
     public ResponseEntity<BaseResponse<OrderDTO>> getOrder(@PathVariable("id") Long id) {
         log.info("GET /api/v1/orders/{} - Fetching order", id);
@@ -54,6 +57,7 @@ public class OrderController {
     }
 
     @GetMapping("/number/{orderNumber}")
+    @PreAuthorize("hasRole('ADMIN') or @orderSecurity.isOwnerByNumber(#orderNumber, authentication)")
     @Operation(summary = "Get order by order number")
     public ResponseEntity<BaseResponse<OrderDTO>> getOrderByNumber(@PathVariable("orderNumber") String orderNumber) {
         log.info("GET /api/v1/orders/number/{} - Fetching order", orderNumber);
@@ -63,6 +67,7 @@ public class OrderController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Get orders with optional status filter")
     public ResponseEntity<BaseResponse<Page<OrderDTO>>> getOrders(
             @Parameter(description = "Filter by status") @RequestParam(name = "status", required = false) String status,
@@ -74,6 +79,7 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{customerId}")
+    @PreAuthorize("hasRole('ADMIN') or #customerId.toString() == authentication.name")
     @Operation(summary = "Get orders for a customer")
     public ResponseEntity<BaseResponse<Page<OrderDTO>>> getOrdersByCustomer(@PathVariable("customerId") Long customerId,
                                                                              Pageable pageable) {
@@ -84,6 +90,7 @@ public class OrderController {
     }
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update order status")
     public ResponseEntity<BaseResponse<OrderDTO>> updateStatus(@PathVariable("id") Long id,
                                                                 @Valid @RequestBody UpdateOrderStatusRequest request) {
@@ -94,6 +101,7 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @orderSecurity.isOwner(#id, authentication)")
     @Operation(summary = "Cancel order")
     public ResponseEntity<BaseResponse<Void>> cancelOrder(@PathVariable("id") Long id) {
         log.info("DELETE /api/v1/orders/{} - Cancelling order", id);

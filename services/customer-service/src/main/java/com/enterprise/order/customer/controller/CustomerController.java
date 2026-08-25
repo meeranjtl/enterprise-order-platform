@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -24,7 +25,10 @@ public class CustomerController {
 
     private final CustomerService customerService;
 
+    // Public self-registration goes through /api/auth/register; direct creation here
+    // (e.g. an admin back-office tool creating a customer without a password) is admin-only.
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a new customer")
     public ResponseEntity<BaseResponse<CustomerDTO>> createCustomer(@Valid @RequestBody CustomerDTO customerDTO) {
         log.info("POST /api/v1/customers - Creating customer");
@@ -35,6 +39,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or #id.toString() == authentication.name")
     @Operation(summary = "Get customer by ID")
     public ResponseEntity<BaseResponse<CustomerDTO>> getCustomer(@PathVariable("id") Long id) {
         log.info("GET /api/v1/customers/{} - Fetching customer", id);
@@ -44,6 +49,7 @@ public class CustomerController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Get all customers with pagination")
     public ResponseEntity<BaseResponse<Page<CustomerDTO>>> getAllCustomers(Pageable pageable) {
         log.info("GET /api/v1/customers - Fetching all customers");
@@ -53,6 +59,7 @@ public class CustomerController {
     }
 
     @GetMapping("/search/advanced")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Search customers with advanced filtering")
     public ResponseEntity<BaseResponse<Page<CustomerDTO>>> searchCustomers(
             @Parameter(description = "Filter by email") @RequestParam(name = "email", required = false) String email,
@@ -69,6 +76,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or #id.toString() == authentication.name")
     @Operation(summary = "Update customer")
     public ResponseEntity<BaseResponse<CustomerDTO>> updateCustomer(@PathVariable("id") Long id,
                                                                      @Valid @RequestBody CustomerDTO customerDTO) {
@@ -79,6 +87,7 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete customer")
     public ResponseEntity<BaseResponse<Void>> deleteCustomer(@PathVariable("id") Long id) {
         log.info("DELETE /api/v1/customers/{} - Deleting customer", id);

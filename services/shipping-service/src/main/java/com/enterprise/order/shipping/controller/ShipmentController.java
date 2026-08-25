@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +26,7 @@ public class ShipmentController {
     private final ShippingService shippingService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a shipment for an order (idempotent per order)")
     public ResponseEntity<BaseResponse<ShipmentDTO>> create(
             @Valid @RequestBody CreateShipmentRequest request) {
@@ -46,6 +48,7 @@ public class ShipmentController {
     }
 
     @PostMapping("/{id}/deliver")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Mark a shipped shipment as delivered (simulation)")
     public BaseResponse<ShipmentDTO> deliver(@PathVariable Long id) {
         return BaseResponse.success(shippingService.deliver(id), "Shipment delivered");

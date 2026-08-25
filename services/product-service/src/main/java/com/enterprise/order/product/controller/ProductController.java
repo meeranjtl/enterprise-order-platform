@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -37,6 +38,7 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a new product")
     public ResponseEntity<BaseResponse<ProductDTO>> createProduct(@Valid @RequestBody ProductDTO productDTO) {
         log.info("POST /api/v1/products - Creating product");
@@ -83,6 +85,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update product")
     public ResponseEntity<BaseResponse<ProductDTO>> updateProduct(@PathVariable("id") Long id,
                                                                    @Valid @RequestBody ProductDTO productDTO) {
@@ -93,6 +96,7 @@ public class ProductController {
     }
 
     @PatchMapping("/{id}/stock")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update product stock quantity")
     public ResponseEntity<BaseResponse<ProductDTO>> updateStock(@PathVariable("id") Long id,
                                                                  @Valid @RequestBody StockAdjustmentDTO stockAdjustmentDTO) {
@@ -103,6 +107,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Discontinue product")
     public ResponseEntity<BaseResponse<Void>> deleteProduct(@PathVariable("id") Long id) {
         log.info("DELETE /api/v1/products/{} - Discontinuing product", id);

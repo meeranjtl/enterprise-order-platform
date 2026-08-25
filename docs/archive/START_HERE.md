@@ -354,15 +354,15 @@ All in root: `C:\dev\projects\enterprise-order-platform\`
 
 ## 📞 Quick Help
 
-**I need...** | **Find it in...**
----|---
-Technical details | IMPLEMENTATION_PLAN.md
-Quick overview | PHASE_QUICK_REFERENCE.md
-Getting started | PHASE_1_GETTING_STARTED.md
-Big picture | PROJECT_OVERVIEW.md
-Architecture | PROJECT_OVERVIEW.md + IMPLEMENTATION_PLAN.md
-Code examples | PHASE_1_GETTING_STARTED.md + IMPLEMENTATION_PLAN.md
-Troubleshooting | PHASE_1_GETTING_STARTED.md (end section)
+| **I need...**     | **Find it in...**                                   |
+| ------------------|-----------------------------------------------------|
+| Technical details | IMPLEMENTATION_PLAN.md                              |                         
+| Quick overview    | PHASE_QUICK_REFERENCE.md                            |                        
+| Getting started   | PHASE_1_GETTING_STARTED.md                          |                       
+| Big picture       | PROJECT_OVERVIEW.md                                 |                      
+| Architecture      | PROJECT_OVERVIEW.md + IMPLEMENTATION_PLAN.md        |        
+| Code examples     | PHASE_1_GETTING_STARTED.md + IMPLEMENTATION_PLAN.md | 
+| Troubleshooting   | PHASE_1_GETTING_STARTED.md (end section)            |
 
 ---
 
@@ -505,7 +505,7 @@ Everything you need to build an enterprise-grade platform is documented:
 
 ## 🚀 LET'S BUILD!
 
-**Start here:** [PHASE_1_GETTING_STARTED.md](./PHASE_1_GETTING_STARTED.md)
+**Start here:** [PHASE_1_GETTING_STARTED.md](../../PHASE_1_GETTING_STARTED.md)
 
 Follow the step-by-step guide and you'll have Phase 1 running in about 1 hour.
 

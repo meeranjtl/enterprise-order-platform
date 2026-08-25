@@ -3,6 +3,10 @@ spring:
     name: order-service
   kafka:
     bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=orders
     username: postgres
@@ -54,14 +58,24 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info
+        include: health,metrics,info,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
+# Log format (JSON) comes from logback-spring.xml; this block only controls levels.
 logging:
-  pattern:
-    level: "%5p [corr=%X{correlationId:-}]"
   level:
     com.enterprise.order: INFO
     org.springframework.web: DEBUG

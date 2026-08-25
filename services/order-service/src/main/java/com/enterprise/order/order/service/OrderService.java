@@ -14,6 +14,8 @@ import com.enterprise.order.order.mapper.OrderMapper;
 import com.enterprise.order.order.repository.OrderRepository;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -72,8 +74,21 @@ public class OrderService {
     private final ProductClient productClient;
     private final OrderPricingProperties pricingProperties;
     private final OutboxPublisher outboxPublisher;
+    private final MeterRegistry meterRegistry;
 
     public OrderDTO createOrder(CreateOrderRequest request) {
+        Timer.Sample timerSample = Timer.start(meterRegistry);
+        try {
+            return doCreateOrder(request);
+        } finally {
+            timerSample.stop(Timer.builder("order.creation.duration")
+                    .description("Time to create an order end-to-end")
+                    .publishPercentiles(0.5, 0.95, 0.99)
+                    .register(meterRegistry));
+        }
+    }
+
+    private OrderDTO doCreateOrder(CreateOrderRequest request) {
         validateCreateRequest(request);
         customerClient.getCustomer(request.getCustomerId());
 

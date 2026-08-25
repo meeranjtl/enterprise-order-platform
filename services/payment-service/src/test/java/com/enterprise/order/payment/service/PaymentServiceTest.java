@@ -13,11 +13,14 @@ import com.enterprise.order.payment.gateway.PaymentGateway;
 import com.enterprise.order.payment.gateway.PaymentResult;
 import com.enterprise.order.payment.repository.PaymentRepository;
 import com.enterprise.order.shared.outbox.OutboxPublisher;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +34,9 @@ class PaymentServiceTest {
 
     @Mock
     private OutboxPublisher outboxPublisher;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private PaymentService service;

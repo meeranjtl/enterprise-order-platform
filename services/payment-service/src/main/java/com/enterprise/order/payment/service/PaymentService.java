@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 
 import com.enterprise.order.shared.outbox.OutboxPublisher;
 import com.enterprise.order.shared.events.PaymentProcessedEvent;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -32,6 +33,7 @@ public class PaymentService {
     private final PaymentGateway gateway;
     private final ObjectProvider<PaymentEventPublisher> publisher;
     private final OutboxPublisher outboxPublisher;
+    private final MeterRegistry meterRegistry;
 
     public PaymentDTO create(CreatePaymentRequest request) {
         Payment payment = Payment.builder()
@@ -109,6 +111,8 @@ public class PaymentService {
             payment.setFailureReason(result.failureReason());
             scheduleRetry(payment);
         }
+        // payment.success.rate (Grafana): completed / (completed + failed) over the "outcome" tag.
+        meterRegistry.counter("payment.result", "outcome", payment.getStatus().name()).increment();
 
         return saveAndPublish(payment);
     }

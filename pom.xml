@@ -45,6 +45,9 @@
         <!-- 1.21.4+ required: Docker Engine 29 raised its minimum API version,
              which breaks the older docker-java bundled with Testcontainers <= 1.21.3 -->
         <testcontainers.version>1.21.4</testcontainers.version>
+        <!-- Not managed by the Spring Boot BOM (unlike micrometer-registry-prometheus /
+             micrometer-tracing-bridge-brave / zipkin-reporter-brave, which are). -->
+        <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
     </properties>
 
     <dependencyManagement>
@@ -87,6 +90,13 @@
                 <groupId>io.github.resilience4j</groupId>
                 <artifactId>resilience4j-spring-boot3</artifactId>
                 <version>2.1.0</version>
+            </dependency>
+
+            <!-- Structured JSON logging (Phase 11) -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
             </dependency>
 
             <!-- TestContainers -->

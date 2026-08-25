@@ -176,12 +176,23 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info,gateway
+        include: health,metrics,info,gateway,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
     gateway:
       enabled: true   # expose /actuator/gateway/routes|routefilters|globalfilters
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
 springdoc:
   swagger-ui:

@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <property name="LOG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [corr=%X{correlationId:-}] %logger{36} - %msg%n"/>
+<!--
+  Phase 11: JSON structured logging. Standalone (not shared-library's
+  logback-json-base.xml) — gateway is reactive and must never depend on
+  shared-library (servlet-based).
 
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>${LOG_PATTERN}</pattern>
+  LogstashEncoder includes every MDC entry by default, so correlationId
+  (CorrelationIdFilter) and traceId/spanId (Micrometer Tracing's Brave
+  instrumentation) show up as JSON fields — both rely on the same reactor
+  Context -> MDC propagation already enabled by
+  Hooks.enableAutomaticContextPropagation() in GatewayApplication.
+-->
+<configuration>
+    <springProperty scope="context" name="applicationName" source="spring.application.name" defaultValue="gateway"/>
+
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${applicationName}"}</customFields>
         </encoder>
     </appender>
 
@@ -14,6 +24,6 @@
     <logger name="io.github.resilience4j" level="INFO"/>
 
     <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="JSON"/>
     </root>
 </configuration>

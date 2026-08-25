@@ -24,3 +24,10 @@
 - Keep context limited to the current task/phase.
 - Do not reread information already captured in `AGENTS.md` or phase documents.
 - Avoid unnecessary searches, scans, and file loading.
+
+## Reference Documentation
+- Service topology, ports, Kafka topics, saga flow: `docs/architecture.md`.
+- Non-negotiable invariants (exceptions, idempotency, event-vs-HTTP, gateway wiring): `docs/domain-rules.md`.
+- Read before touching cross-service wiring, event publishing, or auth/data-integrity code.
+- Hard-won implementation gotchas by phase: `docs/gotchas.md`.
+- Read only when relevant to the current task — not on every request.

@@ -12,7 +12,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -29,6 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Web-slice test: only the MVC layer boots (no Kafka/JPA beans). This works because the
  * JPA repository/entity scans live in config.JpaConfig, which web slices do not load.
  * Spring Data web support (Pageable resolver, Page serialization) comes with the slice.
+ * shared-library's SecurityConfig/JwtDecoderConfig are picked up by the slice too (Phase 12),
+ * so every request needs a mock JWT — see {@link #adminJwt()}.
  */
 @WebMvcTest(CustomerController.class)
 class CustomerControllerTest {
@@ -58,11 +63,19 @@ class CustomerControllerTest {
                 .build();
     }
 
+    /** Mock ADMIN-authorized JWT — covers every endpoint's @PreAuthorize check. */
+    private static RequestPostProcessor adminJwt() {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .jwt(jwt -> jwt.subject("999").claim("roles", List.of("ADMIN")))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
     @Test
     void testCreateCustomer_Success() throws Exception {
         when(customerService.createCustomer(any())).thenReturn(customerDTO);
 
         mockMvc.perform(post("/api/v1/customers")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(customerDTO)))
                 .andExpect(status().isCreated())
@@ -77,6 +90,7 @@ class CustomerControllerTest {
         when(customerService.getCustomer(1L)).thenReturn(customerDTO);
 
         mockMvc.perform(get("/api/v1/customers/1")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id", is(1)))
@@ -99,6 +113,7 @@ class CustomerControllerTest {
         when(customerService.getAllCustomers(org.mockito.ArgumentMatchers.any())).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/customers")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(2)))
@@ -117,6 +132,7 @@ class CustomerControllerTest {
         when(customerService.updateCustomer(eq(1L), any())).thenReturn(updatedDTO);
 
         mockMvc.perform(put("/api/v1/customers/1")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(updatedDTO)))
                 .andExpect(status().isOk())
@@ -129,6 +145,7 @@ class CustomerControllerTest {
         doNothing().when(customerService).deleteCustomer(1L);
 
         mockMvc.perform(delete("/api/v1/customers/1")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))

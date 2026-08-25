@@ -11,7 +11,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -59,11 +62,19 @@ class ProductControllerTest {
                 .build();
     }
 
+    /** Mock ADMIN-authorized JWT — covers every endpoint's @PreAuthorize check. */
+    private static RequestPostProcessor adminJwt() {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .jwt(jwt -> jwt.subject("999").claim("roles", List.of("ADMIN")))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
     @Test
     void createProduct_success() throws Exception {
         when(productService.createProduct(any())).thenReturn(productDTO);
 
         mockMvc.perform(post("/api/v1/products")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(productDTO)))
                 .andExpect(status().isCreated())
@@ -75,7 +86,8 @@ class ProductControllerTest {
     void getProduct_success() throws Exception {
         when(productService.getProduct(10L)).thenReturn(productDTO);
 
-        mockMvc.perform(get("/api/v1/products/10"))
+        mockMvc.perform(get("/api/v1/products/10")
+                .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id", is(10)))
                 .andExpect(jsonPath("$.success", is(true)));
@@ -86,7 +98,8 @@ class ProductControllerTest {
         Page<ProductDTO> page = new PageImpl<>(List.of(productDTO));
         when(productService.getAllProducts(any())).thenReturn(page);
 
-        mockMvc.perform(get("/api/v1/products"))
+        mockMvc.perform(get("/api/v1/products")
+                .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(1)));
     }
@@ -98,6 +111,7 @@ class ProductControllerTest {
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/products/search")
+                .with(adminJwt())
                 .param("name", "keyboard")
                 .param("categoryId", "1")
                 .param("minPrice", "10.00")
@@ -113,6 +127,7 @@ class ProductControllerTest {
         when(productService.updateProduct(eq(10L), any())).thenReturn(productDTO);
 
         mockMvc.perform(put("/api/v1/products/10")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(productDTO)))
                 .andExpect(status().isOk())
@@ -133,6 +148,7 @@ class ProductControllerTest {
         when(productService.updateStock(10L, 0)).thenReturn(updated);
 
         mockMvc.perform(patch("/api/v1/products/10/stock")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stockQuantity\":0}"))
                 .andExpect(status().isOk())
@@ -143,7 +159,8 @@ class ProductControllerTest {
     void deleteProduct_success() throws Exception {
         doNothing().when(productService).deleteProduct(10L);
 
-        mockMvc.perform(delete("/api/v1/products/10"))
+        mockMvc.perform(delete("/api/v1/products/10")
+                .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)));
     }

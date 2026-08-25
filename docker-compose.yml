@@ -29,6 +29,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8081:8081"
     depends_on:
@@ -50,6 +51,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8082:8082"
     depends_on:
@@ -73,6 +75,7 @@ services:
       ORDER_CLIENTS_PRODUCT_SERVICE_URL: http://product-service:8082
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8083:8083"
     depends_on:
@@ -101,6 +104,7 @@ services:
       # (order-events / payment-events) and the outbox poller are always active.
       INVENTORY_KAFKA_ENABLED: "false"
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8084:8084"
     depends_on:
@@ -125,6 +129,7 @@ services:
       # through the transactional outbox, so this stays disabled to avoid double-publishing.
       PAYMENT_KAFKA_ENABLED: "false"
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8085:8085"
     depends_on:
@@ -146,6 +151,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8086:8086"
     depends_on:
@@ -167,6 +173,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8087:8087"
     depends_on:
@@ -188,6 +195,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8088:8088"
     depends_on:
@@ -342,6 +350,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8080:8080"
     depends_on:

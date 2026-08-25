@@ -13,7 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -47,6 +50,13 @@ class AnalyticsControllerTest {
     @MockBean
     private AnalyticsReportService analyticsReportService;
 
+    /** Mock ADMIN-authorized JWT — every endpoint requires at least an authenticated JWT. */
+    private static RequestPostProcessor adminJwt() {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .jwt(jwt -> jwt.subject("999").claim("roles", List.of("ADMIN")))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
     @Test
     void getDailyMetrics_returnsSeries() throws Exception {
         when(analyticsReportService.getDailyMetrics(eq(FROM), eq(TO))).thenReturn(List.of(
@@ -58,6 +68,7 @@ class AnalyticsControllerTest {
                         .build()));
 
         mockMvc.perform(get("/api/v1/analytics/daily-metrics")
+                        .with(adminJwt())
                         .param("from", FROM.toString())
                         .param("to", TO.toString()))
                 .andExpect(status().isOk())
@@ -77,6 +88,7 @@ class AnalyticsControllerTest {
                         .build()));
 
         mockMvc.perform(get("/api/v1/analytics/product-metrics")
+                        .with(adminJwt())
                         .param("from", FROM.toString())
                         .param("to", TO.toString())
                         .param("sortBy", "units")
@@ -101,6 +113,7 @@ class AnalyticsControllerTest {
                 .build());
 
         mockMvc.perform(get("/api/v1/analytics/revenue")
+                        .with(adminJwt())
                         .param("from", FROM.toString())
                         .param("to", TO.toString()))
                 .andExpect(status().isOk())
@@ -125,6 +138,7 @@ class AnalyticsControllerTest {
                         .build());
 
         mockMvc.perform(get("/api/v1/analytics/customer-metrics")
+                        .with(adminJwt())
                         .param("from", FROM.toString())
                         .param("to", TO.toString()))
                 .andExpect(status().isOk())
@@ -146,6 +160,7 @@ class AnalyticsControllerTest {
                         .build());
 
         mockMvc.perform(get("/api/v1/analytics/fulfillment-metrics")
+                        .with(adminJwt())
                         .param("from", FROM.toString())
                         .param("to", TO.toString()))
                 .andExpect(status().isOk())
@@ -165,7 +180,8 @@ class AnalyticsControllerTest {
                 .topProducts(List.of())
                 .build());
 
-        mockMvc.perform(get("/api/v1/analytics/summary"))
+        mockMvc.perform(get("/api/v1/analytics/summary")
+                        .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalOrders", is(10)))
                 .andExpect(jsonPath("$.data.avgOrderValue", is(125.0)))
@@ -178,6 +194,7 @@ class AnalyticsControllerTest {
                 .thenThrow(new BadRequestException("'from' must not be after 'to'"));
 
         mockMvc.perform(get("/api/v1/analytics/daily-metrics")
+                        .with(adminJwt())
                         .param("from", TO.toString())
                         .param("to", FROM.toString()))
                 .andExpect(status().isBadRequest())

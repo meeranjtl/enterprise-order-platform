@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Initiate a payment")
     public ResponseEntity<BaseResponse<PaymentDTO>> create(
             @Valid @RequestBody CreatePaymentRequest request) {
@@ -39,12 +41,14 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/retry")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Retry a failed payment")
     public BaseResponse<PaymentDTO> retry(@PathVariable Long id) {
         return BaseResponse.success(paymentService.retry(id), "Payment retry processed");
     }
 
     @PostMapping("/{id}/refund")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Refund a completed payment")
     public BaseResponse<PaymentDTO> refund(@PathVariable Long id) {
         return BaseResponse.success(paymentService.refund(id), "Payment refunded");

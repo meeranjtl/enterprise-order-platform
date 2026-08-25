@@ -31,6 +31,9 @@ spring:
     table: flyway_schema_history_order
     create-schemas: true
 
+jwt:
+  secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+
 server:
   port: 8083
   servlet:

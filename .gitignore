@@ -119,7 +119,11 @@ application-prod.yml
 *.sqlite3
 *.derby.db
 data/
-db/
+# Anchored to repo root only — an unanchored "db/" here matched every
+# service's src/main/resources/db/migration/ too, silently keeping every
+# Flyway migration in the platform out of git since before this comment
+# was added (discovered during Phase 12; fixed and backfilled).
+/db/
 *.sql.backup
 postgres_data/
 

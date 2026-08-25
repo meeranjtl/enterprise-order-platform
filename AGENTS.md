@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **Currently: Phase 11 complete (Observability).** Next: Phase 12 (Security — JWT auth, RBAC).
+**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **Currently: Phase 12 complete (Security — JWT auth, RBAC).** Next: Phase 13 (React UI).
 
 **Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 18 (Phase 13), Docker Compose, Resilience4j
 **Project Type:** Maven multi-module — 9 services + gateway + shared-library
@@ -77,6 +77,6 @@ See the full list with rationale in [docs/domain-rules.md](docs/domain-rules.md#
 
 ---
 
-**Last Updated:** August 24, 2026
-**Current Phase:** Phase 11 complete (Observability)
-**Next Phase:** Phase 12 (Security — JWT authentication, role-based access control)
+**Last Updated:** August 25, 2026
+**Current Phase:** Phase 12 complete (Security — JWT auth, RBAC; see [PHASE_12_COMPLETE.md](PHASE_12_COMPLETE.md))
+**Next Phase:** Phase 13 (React UI)

@@ -14,7 +14,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,6 +35,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * shared-library's SecurityConfig is picked up by this slice (Phase 12), so every request
+ * needs a mock JWT. All requests here use ADMIN so {@code hasRole('ADMIN') or @orderSecurity...}
+ * short-circuits on the role check — the orderSecurity bean (not part of this slice) is never
+ * actually evaluated.
+ */
 @WebMvcTest(OrderController.class)
 class OrderControllerTest {
 
@@ -75,11 +84,18 @@ class OrderControllerTest {
                 .build();
     }
 
+    private static RequestPostProcessor adminJwt() {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .jwt(jwt -> jwt.subject("999").claim("roles", List.of("ADMIN")))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
     @Test
     void createOrder_success() throws Exception {
         when(orderService.createOrder(any())).thenReturn(orderDTO);
 
         mockMvc.perform(post("/api/v1/orders")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createRequest)))
                 .andExpect(status().isCreated())
@@ -93,6 +109,7 @@ class OrderControllerTest {
         CreateOrderRequest invalid = CreateOrderRequest.builder().customerId(1L).items(List.of()).build();
 
         mockMvc.perform(post("/api/v1/orders")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest());
@@ -102,7 +119,7 @@ class OrderControllerTest {
     void getOrder_success() throws Exception {
         when(orderService.getOrder(100L)).thenReturn(orderDTO);
 
-        mockMvc.perform(get("/api/v1/orders/100"))
+        mockMvc.perform(get("/api/v1/orders/100").with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.id", is(100)));
@@ -112,7 +129,7 @@ class OrderControllerTest {
     void getOrderByNumber_success() throws Exception {
         when(orderService.getOrderByNumber("ORD-20260727-ABC12345")).thenReturn(orderDTO);
 
-        mockMvc.perform(get("/api/v1/orders/number/ORD-20260727-ABC12345"))
+        mockMvc.perform(get("/api/v1/orders/number/ORD-20260727-ABC12345").with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.orderNumber", is("ORD-20260727-ABC12345")));
     }
@@ -122,7 +139,7 @@ class OrderControllerTest {
         Page<OrderDTO> page = new PageImpl<>(List.of(orderDTO));
         when(orderService.getOrders(eq("PENDING"), any())).thenReturn(page);
 
-        mockMvc.perform(get("/api/v1/orders").param("status", "PENDING"))
+        mockMvc.perform(get("/api/v1/orders").param("status", "PENDING").with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(1)));
     }
@@ -132,7 +149,7 @@ class OrderControllerTest {
         Page<OrderDTO> page = new PageImpl<>(List.of(orderDTO));
         when(orderService.getOrdersByCustomer(eq(1L), any())).thenReturn(page);
 
-        mockMvc.perform(get("/api/v1/orders/customer/1"))
+        mockMvc.perform(get("/api/v1/orders/customer/1").with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(1)));
     }
@@ -143,6 +160,7 @@ class OrderControllerTest {
         when(orderService.updateStatus(100L, "VALIDATED")).thenReturn(updated);
 
         mockMvc.perform(patch("/api/v1/orders/100/status")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"VALIDATED\"}"))
                 .andExpect(status().isOk())
@@ -153,7 +171,7 @@ class OrderControllerTest {
     void cancelOrder_success() throws Exception {
         doNothing().when(orderService).cancelOrder(100L);
 
-        mockMvc.perform(delete("/api/v1/orders/100"))
+        mockMvc.perform(delete("/api/v1/orders/100").with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)));
     }

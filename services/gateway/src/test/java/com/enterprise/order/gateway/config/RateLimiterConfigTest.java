@@ -5,17 +5,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextImpl;
 import reactor.test.StepVerifier;
 
 import java.net.InetSocketAddress;
 
 class RateLimiterConfigTest {
 
+    private RateLimiterConfig config;
     private KeyResolver resolver;
 
     @BeforeEach
     void setUp() {
-        resolver = new RateLimiterConfig().ipKeyResolver();
+        config = new RateLimiterConfig();
+        resolver = config.ipKeyResolver();
     }
 
     @Test
@@ -82,6 +87,31 @@ class RateLimiterConfigTest {
 
         StepVerifier.create(resolver.resolve(exchange))
                 .expectNext("10.1.2.3")
+                .verifyComplete();
+    }
+
+    @Test
+    void jwtKeyResolver_resolvesToAuthenticationSubjectWhenAuthenticated() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/orders"));
+
+        var authentication = new TestingAuthenticationToken("42", null);
+        var context = ReactiveSecurityContextHolder.withSecurityContext(
+                reactor.core.publisher.Mono.just(new SecurityContextImpl(authentication)));
+
+        StepVerifier.create(config.jwtKeyResolver().resolve(exchange).contextWrite(context))
+                .expectNext("42")
+                .verifyComplete();
+    }
+
+    @Test
+    void jwtKeyResolver_fallsBackToIpWhenUnauthenticated() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/auth/login")
+                        .remoteAddress(new InetSocketAddress("10.0.0.9", 54321)));
+
+        StepVerifier.create(config.jwtKeyResolver().resolve(exchange))
+                .expectNext("10.0.0.9")
                 .verifyComplete();
     }
 }

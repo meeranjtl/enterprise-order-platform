@@ -1,6 +1,11 @@
 package com.enterprise.order.gateway;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
@@ -21,8 +26,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -69,6 +76,28 @@ class GatewayRoutingIT {
         registry.add("wiremock.product.port", productStub::port);
     }
 
+    // Must match application.yml's jwt.secret dev default — the test profile doesn't
+    // override it, so this signs tokens the gateway's real JwtDecoder will accept.
+    private static final String JWT_SECRET = "phase12-dev-only-shared-secret-change-in-production-32bytes-min";
+    private static final String BEARER_TOKEN = "Bearer " + signToken();
+
+    private static String signToken() {
+        try {
+            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .subject("1")
+                    .claim("roles", List.of("CUSTOMER"))
+                    .claim("type", "access")
+                    .issueTime(new Date())
+                    .expirationTime(new Date(System.currentTimeMillis() + 900_000))
+                    .build();
+            SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+            jwt.sign(new MACSigner(JWT_SECRET.getBytes(StandardCharsets.UTF_8)));
+            return jwt.serialize();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to sign test JWT", e);
+        }
+    }
+
     @LocalServerPort
     private int port;
 
@@ -109,6 +138,7 @@ class GatewayRoutingIT {
     @Order(1)
     void routesRequestToCustomerService() {
         String body = client.get().uri("/api/v1/customers/1")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                 .retrieve()
                 .bodyToMono(String.class)
                 .block(Duration.ofSeconds(10));
@@ -121,6 +151,7 @@ class GatewayRoutingIT {
     @Order(2)
     void routesRequestToProductService() {
         String body = client.get().uri("/api/v1/products/1")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                 .retrieve()
                 .bodyToMono(String.class)
                 .block(Duration.ofSeconds(10));
@@ -133,6 +164,7 @@ class GatewayRoutingIT {
     @Order(3)
     void unknownRouteReturns404WithRouteNotFoundEnvelope() {
         var response = client.get().uri("/api/v1/unknown")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                 .exchangeToMono(r -> r.bodyToMono(String.class)
                         .defaultIfEmpty("")
                         .map(b -> new StatusAndBody(r.statusCode(), b)))
@@ -147,6 +179,7 @@ class GatewayRoutingIT {
     @Order(4)
     void propagatesCorrelationIdToDownstreamService() {
         client.get().uri("/api/v1/customers/1")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                 .header("X-Correlation-Id", "it-corr-123")
                 .retrieve()
                 .bodyToMono(String.class)
@@ -160,6 +193,7 @@ class GatewayRoutingIT {
     @Order(5)
     void echoesProvidedCorrelationIdInResponse() {
         String echoed = client.get().uri("/api/v1/customers/1")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                 .header("X-Correlation-Id", "echo-me-456")
                 .exchangeToMono(r -> Mono.justOrEmpty(r.headers().asHttpHeaders().getFirst("X-Correlation-Id")))
                 .block(Duration.ofSeconds(10));
@@ -171,6 +205,7 @@ class GatewayRoutingIT {
     @Order(6)
     void generatesCorrelationIdWhenNoneProvided() {
         String generated = client.get().uri("/api/v1/customers/1")
+                .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                 .exchangeToMono(r -> Mono.justOrEmpty(r.headers().asHttpHeaders().getFirst("X-Correlation-Id")))
                 .block(Duration.ofSeconds(10));
 
@@ -188,6 +223,7 @@ class GatewayRoutingIT {
 
         for (int i = 0; i < 40; i++) {
             var response = client.get().uri("/api/v1/customers")
+                    .header(HttpHeaders.AUTHORIZATION, BEARER_TOKEN)
                     .exchangeToMono(r -> r.bodyToMono(String.class)
                             .defaultIfEmpty("")
                             .map(b -> new RawResponse(r.statusCode(), b, r.headers().asHttpHeaders())))

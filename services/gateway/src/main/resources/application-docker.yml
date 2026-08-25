@@ -176,10 +176,14 @@ server:
   port: 8080
 
 management:
+  # Only the exposure list needs re-declaring here: it's a scalar property, so the
+  # docker profile's value fully overrides (not merges with) the base application.yml
+  # value for this one key — everything else (tracing, health probes, metrics tags)
+  # inherits from the base file since docker doesn't redeclare those keys.
   endpoints:
     web:
       exposure:
-        include: health,metrics,info,gateway
+        include: health,metrics,info,gateway,prometheus
   endpoint:
     health:
       show-details: always

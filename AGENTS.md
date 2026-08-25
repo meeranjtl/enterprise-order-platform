@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 10 complete (Analytics & Reporting)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085), shipping-service (:8086), notification-service (:8087), analytics-service (:8088) are implemented with event-driven saga orchestration through fulfillment plus a read-model analytics layer; next up is Phase 11 (Observability).
+This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 11 complete (Observability)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), inventory-service (:8084), payment-service (:8085), shipping-service (:8086), notification-service (:8087), analytics-service (:8088) are implemented with event-driven saga orchestration through fulfillment, a read-model analytics layer, and JSON logging/Prometheus/Grafana/Zipkin observability platform-wide; next up is Phase 12 (Security).
 
 **Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
 
@@ -30,8 +30,8 @@ React UI (Phase 13) → API Gateway (Spring Cloud Gateway) → 9 Microservices
 ```
 
 **Current Services** (see `services/` directory):
-- **shared-library**: Common exceptions, DTOs, validators, response wrappers, logging utilities
-- **gateway**: API Gateway (Phase 4) ✅
+- **shared-library**: Common exceptions, DTOs, validators, response wrappers, logging utilities, observability (JSON log base, Kafka health indicator)
+- **gateway**: API Gateway (Phase 4) ✅ — reactive, own copy of Phase 11 observability deps
 - **customer-service**: Customer CRUD (Phase 2) ✅
 - **product-service**: Product catalog (Phase 3) ✅
 - **order-service**: Order processing (Phase 5) ✅
@@ -40,6 +40,9 @@ React UI (Phase 13) → API Gateway (Spring Cloud Gateway) → 9 Microservices
 - **shipping-service**: Fulfillment (Phase 9) ✅
 - **notification-service**: Email/SMS (Phase 9) ✅
 - **analytics-service**: Metrics/reporting (Phase 10) ✅
+
+All 10 services above are instrumented for observability (Phase 11): JSON
+logs, `/actuator/prometheus`, liveness/readiness probes, Zipkin tracing.
 
 **Critical Design Decision:** All services depend on `shared-library` for common code. When adding cross-cutting concerns (exceptions, DTOs, validators), add to `shared-library` first, then services can consume.
 
@@ -700,6 +703,92 @@ than a build error.
 
 ---
 
+## Phase 11: Observability (NEW!)
+
+### What's New in Phase 11
+
+**Architecture:** cross-cutting instrumentation added to all 10 running
+services (gateway + 9 microservices) — no new business logic, no new Kafka
+topics, no new DB tables. Three new infra containers: `zipkin` (:9411),
+`prometheus` (:9090), `grafana` (:3000, default login `admin`/`admin`).
+
+**Key Components:**
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **`logback-json-base.xml`** | `shared-library/src/main/resources/` | Shared JSON log appender (`LogstashEncoder`), `<include>`d by every servlet service's own `logback-spring.xml`; gateway carries a standalone copy (reactive, can't depend on shared-library) |
+| **`KafkaHealthIndicator`** | `shared-library/.../health/` | Spring Boot has no built-in Kafka health contributor (verified against the actual autoconfigure jar) — reuses the existing `KafkaAdmin` bean |
+| **`order.creation.duration`** | `OrderService.createOrder()` | Micrometer `Timer`, `publishPercentiles(0.5, 0.95, 0.99)` |
+| **`payment.result`** | `PaymentService.process()` | Micrometer `Counter` tagged `outcome=COMPLETED\|FAILED`; success rate computed in Grafana via PromQL, not in-app |
+| **`observability/`** | repo root | `prometheus.yml` (9 scrape targets), `grafana/provisioning/` (datasource + dashboard auto-provisioning), `grafana/dashboards/*.json` (Platform Overview, Kafka Consumers, Business KPIs — hand-authored against real metric names, not imported) |
+
+**Per-service config (`application.yml`, all 10 services):**
+`management.endpoints.web.exposure.include` gains `prometheus`;
+`management.metrics.tags.application`; `management.tracing.sampling.probability: 1.0`;
+`management.zipkin.tracing.endpoint` (Spring Boot 3 property —
+IMPLEMENTATION_PLAN.md's example used the Boot-2-era `spring.zipkin.base-url`);
+`management.endpoint.health.probes.enabled: true`;
+`spring.kafka.template.observation-enabled` / `listener.observation-enabled`
+(the 8 servlet services — correct and harmless, but see the outbox gap below).
+
+**Kafka metrics (including consumer lag) required zero code** — Spring
+Boot's `KafkaMetricsAutoConfiguration` binds Micrometer's `KafkaClientMetrics`
+to the autoconfigured `ConsumerFactory`/`ProducerFactory` beans automatically
+once `micrometer-registry-prometheus` is on the classpath, since
+`KafkaConfig` doesn't define custom factory beans.
+
+### Phase 11 Gotchas (Learned During Implementation)
+
+❌ **A Spring profile's scalar property fully overrides the base value, not
+merges with it.** Gateway's `application-docker.yml` redeclares
+`management.endpoints.web.exposure.include` (route list is `docker` profile
+only for lists — but this is a scalar string property, same silent-drop risk
+as the list case). Missing `prometheus` there would mean
+`/actuator/prometheus` works locally but silently vanishes only in Docker.
+
+❌ **Kafka-hop trace propagation is architecturally absent, not fixable by
+config.** The Phase 8 transactional outbox pattern writes the event to a
+table inside the original request's transaction, then a separate
+`@Scheduled` `OutboxPoller` publishes it seconds later on an unrelated
+thread — there is no trace context to propagate from at publish time no
+matter what tracing properties are set. Confirmed directly in Zipkin: every
+outbox-poller span is a root span with no parent. A real fix means storing
+`traceId`/`spanId` on the outbox row and manually restoring that span
+context in `OutboxPublisher.publishEvent()` — deferred, not done in Phase 11.
+The existing `X-Correlation-Id` (business-level, already flows through Kafka
+headers) remains the way to correlate a saga's logs across services.
+
+❌ **Never rebuild many Spring Boot service images concurrently on a
+resource-constrained Docker Desktop.** `docker compose up -d --build` across
+8 services at once crashed the Docker Desktop engine (`docker version`
+itself returned a `500` from the daemon — confirmed broken, not just slow).
+Rebuilding sequentially (`docker compose build <service>` one at a time)
+avoided it.
+
+✅ **Neither `kafka` nor `zookeeper` has a data volume** — if either gets
+into a bad state (e.g. a stale ZooKeeper `NodeExistsException` broker
+registration after an unclean shutdown), `docker compose rm -f zookeeper
+kafka` + `up -d` recreates them cleanly with no data loss to worry about.
+
+### Validation (Aug 24, 2026)
+
+- `docker compose up -d --build` — all 18 containers healthy (the 9
+  services + gateway, postgres/redis/kafka/zookeeper/schema-registry/kafka-ui,
+  and the 3 new observability containers)
+- Prometheus: all 9 app-service scrape targets `up`; custom metrics
+  (`order_creation_duration_seconds_count`, `payment_result_total`,
+  `kafka_consumer_fetch_manager_records_lag`) confirmed live with real data
+- Zipkin: all 9 services registered; a real order creation through the
+  gateway produced one correctly-nested 3-span trace for the gateway→
+  order-service HTTP hop (Kafka-hop limitation documented above)
+- Grafana: provisioned datasource + all 3 dashboards confirmed via API,
+  confirmed reachable to Prometheus with live data
+- Full platform-wide `mvn clean install` deferred to Phase 12 (see
+  `PHASE_11_COMPLETE.md` for the known-flaky `CustomerServiceIT` note);
+  per-module test runs during implementation were all green
+
+---
+
 **Last Updated:** August 24, 2026
-**For Phase:** Phase 10 complete (Analytics & Reporting — read-model event consumer, fact-table + recompute aggregation, reconciliation sweep, report API)
-**Next Phase:** Observability (Phase 11) — distributed tracing, metrics, centralized logging
+**For Phase:** Phase 11 complete (Observability — JSON logging, Prometheus metrics, Grafana dashboards, Zipkin tracing, health probes, all 10 services)
+**Next Phase:** Security (Phase 12) — JWT authentication, role-based access control

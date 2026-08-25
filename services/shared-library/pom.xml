@@ -53,6 +53,34 @@
             <artifactId>spring-boot-starter-logging</artifactId>
         </dependency>
 
+        <!-- Structured JSON logging (Phase 11). Consuming services still need their
+             own logback-spring.xml with <include resource="logback-json-base.xml"/> —
+             this dependency alone doesn't change log output. -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+        </dependency>
+
+        <!-- Prometheus metrics (Phase 11). Activated by each service's own
+             spring-boot-starter-actuator + management.endpoints.web.exposure.include=prometheus. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Distributed tracing (Phase 11): Micrometer Tracing bridged to Brave,
+             reported to Zipkin. Activated by each service's own actuator +
+             management.tracing.* / management.zipkin.tracing.endpoint config. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+        </dependency>
+
         <!-- Spring Data JPA (for Outbox pattern) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -63,6 +91,14 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- Actuator (Phase 11): needed to compile KafkaHealthIndicator here. Every
+             consuming service already declares this directly too (Maven dedups the
+             same BOM-managed version, no conflict). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
         <!-- Avro -->

@@ -1,0 +1,29 @@
+<!--
+  Phase 11: shared JSON log appender for every servlet-based service.
+
+  Usage — each service's own logback-spring.xml:
+    <configuration>
+        <include resource="logback-json-base.xml"/>
+        <logger name="com.enterprise.order.xxx" level="INFO"/>
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </configuration>
+
+  LogstashEncoder includes every MDC entry by default, so correlationId
+  (CorrelationIdLoggingFilter) and traceId/spanId (Micrometer Tracing's Brave
+  MDC decorator, auto-registered once micrometer-tracing-bridge-brave is on
+  the classpath) show up as JSON fields with no extra wiring here.
+
+  Gateway does NOT include this file — it must never depend on shared-library
+  (reactive vs. servlet). It keeps a standalone equivalent in its own module.
+-->
+<included>
+    <springProperty scope="context" name="applicationName" source="spring.application.name" defaultValue="unknown-service"/>
+
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${applicationName}"}</customFields>
+        </encoder>
+    </appender>
+</included>

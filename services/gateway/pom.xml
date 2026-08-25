@@ -66,6 +66,32 @@
             <artifactId>spring-boot-starter-logging</artifactId>
         </dependency>
 
+        <!-- Structured JSON logging (Phase 11). NOT via shared-library (reactive/servlet
+             boundary) — duplicated here, same as every other Phase 11 dependency below. -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+        </dependency>
+
+        <!-- Prometheus metrics (Phase 11) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Distributed tracing (Phase 11): Micrometer Tracing bridged to Brave,
+             reported to Zipkin. Spring Cloud Gateway has native reactive tracing
+             support via these same starters (no WebFlux-specific variant needed). -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

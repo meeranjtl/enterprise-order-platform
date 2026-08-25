@@ -477,7 +477,7 @@ Everything you need to build this enterprise platform is documented. The documen
 - **Navigation** through all materials
 - **Architecture guidance** and best practices
 
-**Start with:** [PHASE_1_GETTING_STARTED.md](./PHASE_1_GETTING_STARTED.md)
+**Start with:** [PHASE_1_GETTING_STARTED.md](../../PHASE_1_GETTING_STARTED.md)
 
 ---
 

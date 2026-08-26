@@ -6,10 +6,10 @@
 
 ## Quick Context
 
-**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **Currently: Phase 12 complete (Security — JWT auth, RBAC).** Next: Phase 13 (React UI).
+**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **Currently: Phase 13 complete (React UI).** Next: Phase 14 (Docker Orchestration).
 
-**Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 18 (Phase 13), Docker Compose, Resilience4j
-**Project Type:** Maven multi-module — 9 services + gateway + shared-library
+**Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 19 + Vite + TypeScript (Phase 13), Docker Compose, Resilience4j
+**Project Type:** Maven multi-module (9 services + gateway + shared-library) + a separate `ui/` npm project — not a Maven module, own `package.json`/build toolchain; see [PHASE_13_COMPLETE.md](PHASE_13_COMPLETE.md)
 
 **Critical:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. All client traffic routes through `:8080`. Full topology, ports, Kafka topics, and saga flow: **[docs/architecture.md](docs/architecture.md)**. Non-negotiable rules (exception handling, idempotency, event-vs-HTTP, gateway route wiring, anti-patterns): **[docs/domain-rules.md](docs/domain-rules.md)**. Hard-won implementation gotchas by phase: **[docs/gotchas.md](docs/gotchas.md)**.
 
@@ -39,6 +39,18 @@ docker compose down
 **Parent POM:** `pom.xml` at repo root — Spring Boot BOM 3.3.0, Spring Cloud 2023.0.3, Lombok, MapStruct. **Java 21**, enforced via maven-compiler-plugin. Never redeclare dependency versions in child POMs.
 
 Build artifact: `services/{service-name}/target/{service-name}-1.0.0.jar`. Docker image: `{service-name}:1.0.0`.
+
+**UI (`ui/`, Phase 13):**
+```powershell
+cd ui
+npm install
+npm run dev              # Vite dev server, http://localhost:5173, talks to gateway at :8080
+npx tsc -b --noEmit       # typecheck
+npm run lint
+npm run build             # production bundle -> ui/dist
+docker compose build ui && docker compose up -d ui   # nginx image, served on :3000
+```
+Vite bakes `VITE_API_URL` into the static bundle at build time (default `http://localhost:8080` — correct for every local/docker-compose setup since the *browser*, not the container, calls the gateway). Never call a service port (`:8081`-`:8088`) directly from the UI — always through the gateway at `:8080`.
 
 ---
 
@@ -77,6 +89,6 @@ See the full list with rationale in [docs/domain-rules.md](docs/domain-rules.md#
 
 ---
 
-**Last Updated:** August 25, 2026
-**Current Phase:** Phase 12 complete (Security — JWT auth, RBAC; see [PHASE_12_COMPLETE.md](PHASE_12_COMPLETE.md))
-**Next Phase:** Phase 13 (React UI)
+**Last Updated:** August 26, 2026
+**Current Phase:** Phase 13 complete (React UI — full dashboard, CRUD, orders/payments, Kafka event visibility, system health, auth; see [PHASE_13_COMPLETE.md](PHASE_13_COMPLETE.md))
+**Next Phase:** Phase 14 (Docker Orchestration — the `ui` service is already wired into `docker-compose.yml` and verified; remaining scope is circuit-breaker/saga-pattern documentation and final end-to-end polish per [PHASE_QUICK_REFERENCE.md](PHASE_QUICK_REFERENCE.md))

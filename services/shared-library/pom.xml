@@ -36,6 +36,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- MapStruct (Phase 13): OutboxEventController maps OutboxEvent -> OutboxEventDTO -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
         <!-- JSON Processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

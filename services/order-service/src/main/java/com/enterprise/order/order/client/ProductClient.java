@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Slf4j
 @Component
@@ -32,6 +34,7 @@ public class ProductClient {
             BaseResponse<ProductLookupDTO> response = restClient.get()
                     .uri("/api/v1/products/{id}", productId)
                     .headers(this::addCorrelationId)
+                    .headers(this::addAuthorization)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
                     });
@@ -56,6 +59,19 @@ public class ProductClient {
         String correlationId = MDC.get("correlationId");
         if (correlationId != null && !correlationId.isBlank()) {
             headers.set(CORRELATION_ID_HEADER, correlationId);
+        }
+    }
+
+    // Same Phase 12 regression as CustomerClient — product-service's GET /{id} only
+    // requires "authenticated", but this internal call carried no token at all and
+    // started failing with a wrapped 401->BadRequestException. Forward the caller's
+    // own bearer token; any authenticated caller can read a product.
+    private void addAuthorization(HttpHeaders headers) {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            String authHeader = attrs.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+            if (authHeader != null && !authHeader.isBlank()) {
+                headers.set(HttpHeaders.AUTHORIZATION, authHeader);
+            }
         }
     }
 }

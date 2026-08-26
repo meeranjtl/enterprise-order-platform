@@ -24,6 +24,13 @@ spring:
 jwt:
   secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
 
+# Phase 13: mounts shared-library's OutboxEventController under this service's own
+# gateway-routed prefix (/api/v1/payments/**) so the Kafka Events UI page reaches it
+# through the existing payment-service route — no new gateway route needed.
+app:
+  events:
+    base-path: /api/v1/payments
+
 server:
   port: 8085
 

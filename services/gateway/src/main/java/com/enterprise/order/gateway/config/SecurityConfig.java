@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -88,7 +89,18 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeExchange(exchanges -> exchanges
+                        // A browser's CORS preflight never carries an Authorization header, so
+                        // it must be permitted pre-auth — otherwise this filter chain 401s the
+                        // OPTIONS request before Gateway's own globalcors filter ever gets a
+                        // chance to answer it with Access-Control-Allow-* headers, and every
+                        // protected route silently fails CORS for real browser clients (curl
+                        // never triggers a preflight, so this doesn't show up outside a browser).
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers(PUBLIC_PATHS).permitAll()
+                        // System Health page (Phase 13) surfaces every downstream service's
+                        // reachability — ops-only info, same sensitivity level as the
+                        // customer-list/order-list endpoints that are already ADMIN-gated.
+                        .pathMatchers("/api/v1/system/**").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt

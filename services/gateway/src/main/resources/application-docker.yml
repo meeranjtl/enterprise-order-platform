@@ -7,17 +7,11 @@ spring:
 
   cloud:
     gateway:
-      # Centralized CORS for browser clients (React UI arrives in Phase 13)
-      globalcors:
-        cors-configurations:
-          "[/**]":
-            allowedOriginPatterns:
-              - "http://localhost:*"
-            allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-            allowedHeaders: [Authorization, Content-Type, X-Correlation-Id, X-Requested-With, Accept]
-            exposedHeaders: [X-Correlation-Id]
-            allowCredentials: true
-            maxAge: 3600
+      # CORS moved to a single Java-config CorsWebFilter bean (CorsConfig, Phase 13) —
+      # see that class for why. Do not re-add spring.cloud.gateway.globalcors here:
+      # once any CorsWebFilter bean exists, Spring Security's WebFlux auto-config
+      # detects and enforces it itself, and having both active double-applies
+      # Access-Control-Allow-* headers, which browsers reject as invalid.
 
       # Applied to every route: Redis-backed token bucket, keyed by JWT subject when
       # present (Phase 12), else client IP (see RateLimiterConfig.jwtKeyResolver).
@@ -56,6 +50,20 @@ spring:
           uri: http://product-service:8082
           predicates:
             - Path=/api/v1/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: productService
+                fallbackUri: forward:/fallback/product-service
+
+        # Categories live in product-service (CategoryController) but had no route
+        # of their own — added for Phase 13 (React UI Products page category
+        # filter). Shares the productService circuit breaker/fallback: same JVM,
+        # same failure domain, no reason to duplicate the resilience4j instance.
+        - id: category-service
+          uri: http://product-service:8082
+          predicates:
+            - Path=/api/v1/categories/**
           filters:
             - name: CircuitBreaker
               args:
@@ -182,6 +190,21 @@ spring:
     redis:
       host: redis
       port: 6379
+
+# Phase 13: System Health UI page. Unlike the routes list above, this is a Map
+# property — Spring Boot merges map keys across profiles rather than replacing
+# the whole list, but redeclared in full here anyway to keep it obviously in
+# sync with the container hostnames used everywhere else in this file.
+app:
+  downstream-services:
+    customer-service: http://customer-service:8081
+    product-service: http://product-service:8082
+    order-service: http://order-service:8083
+    inventory-service: http://inventory-service:8084
+    payment-service: http://payment-service:8085
+    shipping-service: http://shipping-service:8086
+    notification-service: http://notification-service:8087
+    analytics-service: http://analytics-service:8088
 
 jwt:
   secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min

@@ -6,6 +6,8 @@ import com.enterprise.order.shared.dto.BaseResponse;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.InternalServerException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.core.ParameterizedTypeReference;
@@ -29,6 +31,8 @@ public class ProductClient {
         this.restClient = restClientBuilder.baseUrl(properties.getProductServiceUrl()).build();
     }
 
+    @CircuitBreaker(name = "productServiceClient", fallbackMethod = "getProductFallback")
+    @Retry(name = "productServiceClient")
     public ProductLookupDTO getProduct(Long productId) {
         try {
             BaseResponse<ProductLookupDTO> response = restClient.get()
@@ -53,6 +57,20 @@ public class ProductClient {
             log.warn("Product service call failed for productId={}: status={}", productId, ex.getStatusCode());
             throw new InternalServerException("Product service is unavailable");
         }
+    }
+
+    // resilience4j's ignoreExceptions only keeps an exception out of the circuit breaker's
+    // failure-rate bookkeeping — it does NOT stop the fallback from firing for it. A legitimate
+    // 404/400 from product-service would otherwise be retried 3x and masked behind a generic
+    // 500 here. So the fallback itself must rethrow business exceptions unchanged and only
+    // convert genuine connectivity/5xx failures into "service unavailable".
+    private ProductLookupDTO getProductFallback(Long productId, Throwable ex) {
+        if (ex instanceof ResourceNotFoundException || ex instanceof BadRequestException) {
+            throw (RuntimeException) ex;
+        }
+        log.warn("product-service unavailable for productId={}, circuit breaker fallback triggered: {}",
+                productId, ex.getMessage());
+        throw new InternalServerException("Product service is unavailable");
     }
 
     private void addCorrelationId(HttpHeaders headers) {

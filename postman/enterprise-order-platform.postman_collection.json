@@ -1,0 +1,355 @@
+{
+  "info": {
+    "name": "Enterprise Order Platform",
+    "description": "All requests go through the gateway at {{baseUrl}} (default http://localhost:8080) — never a service port directly, per docs/architecture.md. Run \"Login (admin)\" or \"Register\" first: their test scripts capture accessToken/refreshToken into collection variables that every other request's Bearer auth reads automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "customerId", "value": "1" },
+    { "key": "productId", "value": "1" },
+    { "key": "categoryId", "value": "1" },
+    { "key": "orderId", "value": "1" },
+    { "key": "paymentId", "value": "1" },
+    { "key": "shipmentId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login (admin)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@enterprise-order.local\",\n  \"password\": \"Admin123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "if (data && data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const data = pm.response.json().data;",
+                  "if (data && data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', data.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/logout",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers (ADMIN, unless self)",
+      "item": [
+        {
+          "name": "Create customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/customers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new.customer@example.com\",\n  \"firstName\": \"New\",\n  \"lastName\": \"Customer\",\n  \"phone\": \"+1-555-0100\",\n  \"address\": {\n    \"street\": \"1 Market St\",\n    \"city\": \"San Francisco\",\n    \"state\": \"CA\",\n    \"zipCode\": \"94105\",\n    \"country\": \"USA\"\n  }\n}"
+            }
+          }
+        },
+        { "name": "Get customer by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/customers/{{customerId}}" } },
+        {
+          "name": "List customers",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/customers?page=0&size=10" }
+        },
+        {
+          "name": "Search customers (advanced)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/customers/search/advanced?status=ACTIVE&page=0&size=10" }
+        },
+        {
+          "name": "Update customer",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/customers/{{customerId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new.customer@example.com\",\n  \"firstName\": \"New\",\n  \"lastName\": \"Customer\",\n  \"phone\": \"+1-555-0199\"\n}"
+            }
+          }
+        },
+        { "name": "Delete customer", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/customers/{{customerId}}" } }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Create product (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/products",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-1000\",\n  \"name\": \"Wireless Mouse\",\n  \"description\": \"Ergonomic wireless mouse\",\n  \"price\": 29.99,\n  \"stockQuantity\": 100,\n  \"categoryId\": {{categoryId}},\n  \"status\": \"ACTIVE\"\n}"
+            }
+          }
+        },
+        { "name": "Get product by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/products/{{productId}}" } },
+        { "name": "List products", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/products?page=0&size=10" } },
+        {
+          "name": "Search products",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/products/search?name=mouse&status=ACTIVE&page=0&size=10" }
+        },
+        {
+          "name": "Update product (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/products/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"SKU-1000\",\n  \"name\": \"Wireless Mouse\",\n  \"price\": 24.99,\n  \"categoryId\": {{categoryId}},\n  \"status\": \"ACTIVE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Adjust stock (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/products/{{productId}}/stock",
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 50,\n  \"reason\": \"Restock\"\n}" }
+          }
+        },
+        { "name": "Delete product (ADMIN)", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/products/{{productId}}" } }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "Create category (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/categories",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Electronics\",\n  \"description\": \"Electronic devices and accessories\"\n}" }
+          }
+        },
+        { "name": "Get category by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/categories/{{categoryId}}" } },
+        { "name": "List categories", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/categories?page=0&size=10" } },
+        {
+          "name": "Update category (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/categories/{{categoryId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Electronics\",\n  \"description\": \"Updated description\"\n}" }
+          }
+        },
+        { "name": "Delete category (ADMIN)", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/categories/{{categoryId}}" } }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create order (CUSTOMER)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": {{customerId}},\n  \"items\": [\n    { \"productId\": {{productId}}, \"quantity\": 2 }\n  ]\n}"
+            }
+          }
+        },
+        { "name": "Get order by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/orders/{{orderId}}" } },
+        {
+          "name": "Get order by number",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/orders/number/ORD-000001" }
+        },
+        {
+          "name": "List all orders (ADMIN)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/orders?page=0&size=10&sort=createdAt,desc" }
+        },
+        {
+          "name": "List orders for customer",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/orders/customer/{{customerId}}?page=0&size=10" }
+        },
+        {
+          "name": "Update order status (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"CANCELLED\"\n}" }
+          }
+        },
+        { "name": "Cancel order", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/orders/{{orderId}}" } }
+      ]
+    },
+    {
+      "name": "Inventory (ADMIN)",
+      "item": [
+        { "name": "Get inventory for product", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/inventory/{{productId}}" } },
+        {
+          "name": "Reserve stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "reserve-{{orderId}}-{{productId}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/inventory/reserve",
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": {{orderId}},\n  \"productId\": {{productId}},\n  \"quantity\": 2\n}" }
+          }
+        },
+        {
+          "name": "Release stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "release-{{orderId}}-{{productId}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/inventory/release",
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": {{orderId}},\n  \"productId\": {{productId}},\n  \"quantity\": 2\n}" }
+          }
+        },
+        {
+          "name": "Adjust stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "adjust-{{productId}}-001" }
+            ],
+            "url": "{{baseUrl}}/api/v1/inventory/adjust",
+            "body": { "mode": "raw", "raw": "{\n  \"productId\": {{productId}},\n  \"quantity\": 100,\n  \"reason\": \"Initial stock\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments (ADMIN except GET)",
+      "item": [
+        {
+          "name": "Create payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/payments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{orderId}},\n  \"customerId\": {{customerId}},\n  \"amount\": 59.98,\n  \"method\": \"CREDIT_CARD\"\n}"
+            }
+          }
+        },
+        { "name": "Get payment by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}" } },
+        { "name": "Retry payment", "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}/retry" } },
+        { "name": "Refund payment", "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}/refund" } }
+      ]
+    },
+    {
+      "name": "Shipments (ADMIN except GET)",
+      "item": [
+        {
+          "name": "Create shipment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/shipments",
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": {{orderId}}\n}" }
+          }
+        },
+        { "name": "Get shipment by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/shipments/{{shipmentId}}" } },
+        { "name": "Get shipment by order", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/shipments?orderId={{orderId}}" } },
+        { "name": "Mark delivered", "request": { "method": "POST", "url": "{{baseUrl}}/api/v1/shipments/{{shipmentId}}/deliver" } }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        { "name": "Get notification by ID", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/notifications/1" } },
+        { "name": "Get notifications by order", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/notifications?orderId={{orderId}}" } }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        { "name": "Summary", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/analytics/summary" } },
+        {
+          "name": "Daily metrics",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/analytics/daily-metrics?from=2026-08-01&to=2026-08-26" }
+        },
+        {
+          "name": "Product metrics",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/analytics/product-metrics?sortBy=revenue&limit=5" }
+        },
+        { "name": "Revenue report", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/analytics/revenue" } },
+        { "name": "Customer metrics", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/analytics/customer-metrics?limit=5" } },
+        { "name": "Fulfillment metrics", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/analytics/fulfillment-metrics" } }
+      ]
+    }
+  ]
+}

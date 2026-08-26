@@ -6,6 +6,8 @@ import com.enterprise.order.shared.dto.BaseResponse;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.InternalServerException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.core.ParameterizedTypeReference;
@@ -29,6 +31,8 @@ public class CustomerClient {
         this.restClient = restClientBuilder.baseUrl(properties.getCustomerServiceUrl()).build();
     }
 
+    @CircuitBreaker(name = "customerServiceClient", fallbackMethod = "getCustomerFallback")
+    @Retry(name = "customerServiceClient")
     public CustomerLookupDTO getCustomer(Long customerId) {
         try {
             BaseResponse<CustomerLookupDTO> response = restClient.get()
@@ -53,6 +57,20 @@ public class CustomerClient {
             log.warn("Customer service call failed for customerId={}: status={}", customerId, ex.getStatusCode());
             throw new InternalServerException("Customer service is unavailable");
         }
+    }
+
+    // resilience4j's ignoreExceptions only keeps an exception out of the circuit breaker's
+    // failure-rate bookkeeping — it does NOT stop the fallback from firing for it. A legitimate
+    // 404/400 from customer-service would otherwise be retried 3x and masked behind a generic
+    // 500 here. So the fallback itself must rethrow business exceptions unchanged and only
+    // convert genuine connectivity/5xx failures into "service unavailable".
+    private CustomerLookupDTO getCustomerFallback(Long customerId, Throwable ex) {
+        if (ex instanceof ResourceNotFoundException || ex instanceof BadRequestException) {
+            throw (RuntimeException) ex;
+        }
+        log.warn("customer-service unavailable for customerId={}, circuit breaker fallback triggered: {}",
+                customerId, ex.getMessage());
+        throw new InternalServerException("Customer service is unavailable");
     }
 
     private void addCorrelationId(HttpHeaders headers) {

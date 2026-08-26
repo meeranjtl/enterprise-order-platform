@@ -75,7 +75,7 @@ Kafka message key = `orderId` everywhere. Topics are created at service startup 
 8. On failure: compensation flows trigger (inventory release, refund)
 ```
 
-Order status terminal states and the notification event-mapping table live in [domain-rules.md](domain-rules.md).
+Order status terminal states and the notification event-mapping table live in [domain-rules.md](domain-rules.md). Full state machine, step-by-step flow, and compensating transactions: [saga.md](saga.md). CQRS (analytics-service) and the outbox pattern's relationship to event sourcing: [patterns.md](patterns.md).
 
 ## Component Map (where to find things)
 

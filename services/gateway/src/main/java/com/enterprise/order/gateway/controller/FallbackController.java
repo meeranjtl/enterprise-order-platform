@@ -46,6 +46,34 @@ public class FallbackController {
         return buildFallback("Inventory service");
     }
 
+    @RequestMapping(value = "/payment-service", method = {
+            RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+            RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<GatewayErrorResponse> paymentServiceFallback() {
+        return buildFallback("Payment service");
+    }
+
+    @RequestMapping(value = "/shipping-service", method = {
+            RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+            RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<GatewayErrorResponse> shippingServiceFallback() {
+        return buildFallback("Shipping service");
+    }
+
+    @RequestMapping(value = "/notification-service", method = {
+            RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+            RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<GatewayErrorResponse> notificationServiceFallback() {
+        return buildFallback("Notification service");
+    }
+
+    @RequestMapping(value = "/analytics-service", method = {
+            RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+            RequestMethod.PATCH, RequestMethod.DELETE})
+    public ResponseEntity<GatewayErrorResponse> analyticsServiceFallback() {
+        return buildFallback("Analytics service");
+    }
+
     private ResponseEntity<GatewayErrorResponse> buildFallback(String service) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(GatewayErrorResponse.of(

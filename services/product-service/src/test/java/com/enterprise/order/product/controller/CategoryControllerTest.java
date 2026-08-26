@@ -11,7 +11,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.List;
 
@@ -52,11 +55,19 @@ class CategoryControllerTest {
                 .build();
     }
 
+    /** Mock ADMIN-authorized JWT — covers every endpoint's @PreAuthorize check. */
+    private static RequestPostProcessor adminJwt() {
+        return SecurityMockMvcRequestPostProcessors.jwt()
+                .jwt(jwt -> jwt.subject("999").claim("roles", List.of("ADMIN")))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
     @Test
     void createCategory_success() throws Exception {
         when(categoryService.createCategory(any())).thenReturn(categoryDTO);
 
         mockMvc.perform(post("/api/v1/categories")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(categoryDTO)))
                 .andExpect(status().isCreated())
@@ -67,7 +78,8 @@ class CategoryControllerTest {
     void getCategory_success() throws Exception {
         when(categoryService.getCategory(1L)).thenReturn(categoryDTO);
 
-        mockMvc.perform(get("/api/v1/categories/1"))
+        mockMvc.perform(get("/api/v1/categories/1")
+                .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id", is(1)));
     }
@@ -77,7 +89,8 @@ class CategoryControllerTest {
         Page<CategoryDTO> page = new PageImpl<>(List.of(categoryDTO));
         when(categoryService.getAllCategories(any())).thenReturn(page);
 
-        mockMvc.perform(get("/api/v1/categories"))
+        mockMvc.perform(get("/api/v1/categories")
+                .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(1)));
     }
@@ -87,6 +100,7 @@ class CategoryControllerTest {
         when(categoryService.updateCategory(eq(1L), any())).thenReturn(categoryDTO);
 
         mockMvc.perform(put("/api/v1/categories/1")
+                .with(adminJwt())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(categoryDTO)))
                 .andExpect(status().isOk())
@@ -97,7 +111,8 @@ class CategoryControllerTest {
     void deleteCategory_success() throws Exception {
         doNothing().when(categoryService).deleteCategory(1L);
 
-        mockMvc.perform(delete("/api/v1/categories/1"))
+        mockMvc.perform(delete("/api/v1/categories/1")
+                .with(adminJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)));
     }

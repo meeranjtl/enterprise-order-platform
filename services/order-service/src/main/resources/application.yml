@@ -1,6 +1,12 @@
 spring:
   application:
     name: order-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=orders
     username: postgres
@@ -24,6 +30,16 @@ spring:
     default_schema: orders
     table: flyway_schema_history_order
     create-schemas: true
+
+jwt:
+  secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+
+# Phase 13: mounts shared-library's OutboxEventController under this service's own
+# gateway-routed prefix (/api/v1/orders/**) so the Kafka Events UI page reaches it
+# through the existing order-service route — no new gateway route needed.
+app:
+  events:
+    base-path: /api/v1/orders
 
 server:
   port: 8083
@@ -52,14 +68,24 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info
+        include: health,metrics,info,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
+# Log format (JSON) comes from logback-spring.xml; this block only controls levels.
 logging:
-  pattern:
-    level: "%5p [corr=%X{correlationId:-}]"
   level:
     com.enterprise.order: INFO
     org.springframework.web: DEBUG

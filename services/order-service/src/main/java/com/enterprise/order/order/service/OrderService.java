@@ -14,12 +14,18 @@ import com.enterprise.order.order.mapper.OrderMapper;
 import com.enterprise.order.order.repository.OrderRepository;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.enterprise.order.shared.outbox.OutboxPublisher;
+import com.enterprise.order.shared.events.OrderCreatedEvent;
+import java.util.stream.Collectors;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -40,15 +46,22 @@ public class OrderService {
 
     private static final DateTimeFormatter ORDER_DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    // Phase 9: SHIPPED is NOT terminal — the delivery step advances it to COMPLETED.
     private static final Set<OrderStatus> TERMINAL_STATUSES = EnumSet.of(
-            OrderStatus.CANCELLED, OrderStatus.FAILED, OrderStatus.SHIPPED, OrderStatus.COMPLETED);
+            OrderStatus.CANCELLED, OrderStatus.FAILED, OrderStatus.COMPLETED);
 
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = new EnumMap<>(OrderStatus.class);
 
     static {
-        ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.VALIDATED, OrderStatus.CANCELLED, OrderStatus.FAILED));
+        // Phase 8 saga path: PENDING ->(inventory reserved)-> PAYMENT_PENDING
+        //   ->(payment completed)-> PAYMENT_APPROVED / ->(payment failed)-> PAYMENT_REJECTED.
+        // Phase 9 extends it: PAYMENT_APPROVED -> SHIPPED -> COMPLETED.
+        // The manual path through VALIDATED is kept for API-driven flows.
+        ALLOWED_TRANSITIONS.put(OrderStatus.PENDING, EnumSet.of(OrderStatus.VALIDATED, OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED));
         ALLOWED_TRANSITIONS.put(OrderStatus.VALIDATED, EnumSet.of(OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.FAILED));
-        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_PENDING, EnumSet.of(OrderStatus.CANCELLED, OrderStatus.FAILED));
+        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_PENDING, EnumSet.of(OrderStatus.PAYMENT_APPROVED, OrderStatus.PAYMENT_REJECTED, OrderStatus.CANCELLED, OrderStatus.FAILED));
+        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_APPROVED, EnumSet.of(OrderStatus.SHIPPED, OrderStatus.COMPLETED));
+        ALLOWED_TRANSITIONS.put(OrderStatus.PAYMENT_REJECTED, EnumSet.of(OrderStatus.FAILED, OrderStatus.CANCELLED));
         ALLOWED_TRANSITIONS.put(OrderStatus.CANCELLED, EnumSet.noneOf(OrderStatus.class));
         ALLOWED_TRANSITIONS.put(OrderStatus.FAILED, EnumSet.noneOf(OrderStatus.class));
         ALLOWED_TRANSITIONS.put(OrderStatus.SHIPPED, EnumSet.of(OrderStatus.COMPLETED));
@@ -60,8 +73,22 @@ public class OrderService {
     private final CustomerClient customerClient;
     private final ProductClient productClient;
     private final OrderPricingProperties pricingProperties;
+    private final OutboxPublisher outboxPublisher;
+    private final MeterRegistry meterRegistry;
 
     public OrderDTO createOrder(CreateOrderRequest request) {
+        Timer.Sample timerSample = Timer.start(meterRegistry);
+        try {
+            return doCreateOrder(request);
+        } finally {
+            timerSample.stop(Timer.builder("order.creation.duration")
+                    .description("Time to create an order end-to-end")
+                    .publishPercentiles(0.5, 0.95, 0.99)
+                    .register(meterRegistry));
+        }
+    }
+
+    private OrderDTO doCreateOrder(CreateOrderRequest request) {
         validateCreateRequest(request);
         customerClient.getCustomer(request.getCustomerId());
 
@@ -109,6 +136,23 @@ public class OrderService {
         order.setTotalAmount(total);
 
         Order saved = orderRepository.save(order);
+
+        // Store OrderCreatedEvent in outbox for reliable publishing
+        OrderCreatedEvent event = OrderCreatedEvent.builder()
+                .orderId(saved.getId().toString())
+                .orderNumber(saved.getOrderNumber())
+                .customerId(saved.getCustomerId().toString())
+                .totalAmount(saved.getTotalAmount().doubleValue())
+                .orderItems(saved.getItems().stream().map(i -> OrderCreatedEvent.OrderItem.builder()
+                        .productId(i.getProductId().toString())
+                        .quantity(i.getQuantity())
+                        .unitPrice(i.getUnitPrice().doubleValue())
+                        .build()).collect(Collectors.toList()))
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        outboxPublisher.storeEvent(saved.getId().toString(), OrderCreatedEvent.EVENT_TYPE, OrderCreatedEvent.TOPIC, saved.getOrderNumber(), event);
+
         log.info("Created order {} for customer {}", saved.getOrderNumber(), saved.getCustomerId());
         return orderMapper.toDTO(saved);
     }

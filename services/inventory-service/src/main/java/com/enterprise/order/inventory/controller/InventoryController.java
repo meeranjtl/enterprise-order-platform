@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +33,7 @@ public class InventoryController {
     }
 
     @PostMapping("/reserve")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Reserve inventory")
     public ResponseEntity<BaseResponse<InventoryDTO>> reserve(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
@@ -42,6 +44,7 @@ public class InventoryController {
     }
 
     @PostMapping("/release")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Release inventory")
     public BaseResponse<InventoryDTO> release(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
@@ -52,6 +55,7 @@ public class InventoryController {
     }
 
     @PostMapping("/adjust")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Adjust stock")
     public BaseResponse<InventoryDTO> adjust(
             @RequestHeader("Idempotency-Key") String idempotencyKey,

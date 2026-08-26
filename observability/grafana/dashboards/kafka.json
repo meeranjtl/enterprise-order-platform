@@ -1,0 +1,43 @@
+{
+  "id": null,
+  "uid": "kafka-consumers",
+  "title": "Kafka Consumers",
+  "description": "Consumer lag and fetch rate per group/topic, from Micrometer's Kafka client metrics binder (Spring Boot's KafkaMetricsAutoConfiguration, auto-bound to every autoconfigured ConsumerFactory).",
+  "tags": ["kafka", "phase-11"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Consumer lag (records)",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(kafka_consumer_fetch_manager_records_lag) by (application, topic)",
+          "legendFormat": "{{application}} / {{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Records consumed rate",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_consumer_fetch_manager_records_consumed_total[5m])) by (application, topic)",
+          "legendFormat": "{{application}} / {{topic}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

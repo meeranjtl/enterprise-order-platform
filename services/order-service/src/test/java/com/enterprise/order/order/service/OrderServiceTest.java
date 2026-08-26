@@ -14,12 +14,16 @@ import com.enterprise.order.order.mapper.OrderMapper;
 import com.enterprise.order.order.repository.OrderRepository;
 import com.enterprise.order.shared.exception.BadRequestException;
 import com.enterprise.order.shared.exception.ResourceNotFoundException;
+import com.enterprise.order.shared.outbox.OutboxPublisher;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -53,6 +57,12 @@ class OrderServiceTest {
 
     @Mock
     private OrderPricingProperties pricingProperties;
+
+    @Mock
+    private OutboxPublisher outboxPublisher;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private OrderService orderService;
@@ -96,7 +106,11 @@ class OrderServiceTest {
         when(pricingProperties.getFreeShippingThreshold()).thenReturn(new BigDecimal("100.00"));
         when(pricingProperties.getFlatShippingCost()).thenReturn(new BigDecimal("10.00"));
         when(orderRepository.existsByOrderNumber(any())).thenReturn(false);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId(100L);
+            return order;
+        });
         when(orderMapper.toDTO(any(Order.class))).thenReturn(orderDTO);
 
         OrderDTO result = orderService.createOrder(request);
@@ -120,7 +134,11 @@ class OrderServiceTest {
         when(pricingProperties.getTaxRate()).thenReturn(new BigDecimal("0.10"));
         when(pricingProperties.getFreeShippingThreshold()).thenReturn(new BigDecimal("100.00"));
         when(orderRepository.existsByOrderNumber(any())).thenReturn(false);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId(100L);
+            return order;
+        });
         when(orderMapper.toDTO(any(Order.class))).thenReturn(orderDTO);
 
         orderService.createOrder(request);
@@ -189,6 +207,28 @@ class OrderServiceTest {
         when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
 
         assertThrows(BadRequestException.class, () -> orderService.updateStatus(100L, "COMPLETED"));
+    }
+
+    @Test
+    void updateStatus_shippedToCompleted() {
+        // Phase 9: delivery closes the saga — SHIPPED must not be terminal.
+        Order order = Order.builder().id(100L).status(OrderStatus.SHIPPED).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderRepository.save(order)).thenReturn(order);
+        when(orderMapper.toDTO(order)).thenReturn(OrderDTO.builder().id(100L).status("COMPLETED").build());
+
+        OrderDTO result = orderService.updateStatus(100L, "COMPLETED");
+
+        assertEquals("COMPLETED", result.getStatus());
+        assertEquals(OrderStatus.COMPLETED, order.getStatus());
+    }
+
+    @Test
+    void updateStatus_shippedOnlyAllowsCompleted() {
+        Order order = Order.builder().id(100L).status(OrderStatus.SHIPPED).build();
+        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+
+        assertThrows(BadRequestException.class, () -> orderService.updateStatus(100L, "CANCELLED"));
     }
 
     @Test

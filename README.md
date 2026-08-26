@@ -54,7 +54,7 @@ Client → API Gateway (:8080, reactive)
 
 ## Getting started
 
-See [`GETTING_STARTED.md`](./GETTING_STARTED.md) for local setup instructions, and [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full phase-by-phase build plan.
+See [`PHASE_1_GETTING_STARTED.md`](./PHASE_1_GETTING_STARTED.md) for local setup instructions, and [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full phase-by-phase build plan.
 
 ```bash
 docker-compose up -d      # starts PostgreSQL, Kafka, and supporting infra

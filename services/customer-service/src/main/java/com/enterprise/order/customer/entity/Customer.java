@@ -55,6 +55,20 @@ public class Customer {
     @Enumerated(EnumType.STRING)
     private CustomerStatus status;
 
+    @Column
+    private String password;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Role role = Role.CUSTOMER;
+
+    @Column(name = "refresh_token_hash")
+    private String refreshTokenHash;
+
+    @Column(name = "refresh_token_expires_at")
+    private LocalDateTime refreshTokenExpiresAt;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -65,6 +79,10 @@ public class Customer {
 
     public enum CustomerStatus {
         ACTIVE, INACTIVE, SUSPENDED, DELETED
+    }
+
+    public enum Role {
+        CUSTOMER, ADMIN
     }
 }
 

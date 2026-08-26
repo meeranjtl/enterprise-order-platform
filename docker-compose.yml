@@ -27,10 +27,15 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=customer
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8081:8081"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -44,10 +49,15 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=product
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8082:8082"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -63,10 +73,15 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       ORDER_CLIENTS_CUSTOMER_SERVICE_URL: http://customer-service:8081
       ORDER_CLIENTS_PRODUCT_SERVICE_URL: http://product-service:8082
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8083:8083"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       customer-service:
         condition: service_started
@@ -84,11 +99,109 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=inventory
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Gates only the pre-Phase-8 placeholder consumer. The Phase 8 saga consumers
+      # (order-events / payment-events) and the outbox poller are always active.
       INVENTORY_KAFKA_ENABLED: "false"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8084:8084"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: enterprise-payment-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=payment
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Gates only the legacy direct Kafka publisher. Phase 8 publishes payment events
+      # through the transactional outbox, so this stays disabled to avoid double-publishing.
+      PAYMENT_KAFKA_ENABLED: "false"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
+  shipping-service:
+    build:
+      context: .
+      dockerfile: services/shipping-service/Dockerfile
+    container_name: enterprise-shipping-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=shipping
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: enterprise-notification-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=notification
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - enterprise-order-network
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: enterprise-analytics-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/enterprise_order?currentSchema=analytics
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - enterprise-order-network
@@ -108,6 +221,127 @@ services:
     networks:
       - enterprise-order-network
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: enterprise-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - enterprise-order-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: enterprise-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    # cp-kafka ships the CLI wrappers without the .sh extension on PATH.
+    # The CLI is a JVM tool: startup alone can exceed 5s while the broker is
+    # busy (consumer rebalances at platform startup), so allow a 20s timeout.
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server=localhost:9092"]
+      interval: 15s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+    networks:
+      - enterprise-order-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: enterprise-schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    # Host port 8081 is owned by customer-service, so the registry is exposed on 8090.
+    # Inside the compose network it still listens on 8081 (http://schema-registry:8081).
+    ports:
+      - "8090:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_DEBUG: "false"
+    # The registry can take ~3min to boot on a loaded Docker Desktop (waits for
+    # Kafka's _schemas topic while every service connects at once) — the
+    # start_period keeps Docker from marking it unhealthy during that window.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 150s
+    networks:
+      - enterprise-order-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: enterprise-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8888:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - enterprise-order-network
+
+  zipkin:
+    image: openzipkin/zipkin:3.6.1
+    container_name: enterprise-zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - enterprise-order-network
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    container_name: enterprise-prometheus
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - enterprise-order-network
+
+  grafana:
+    image: grafana/grafana:13.2.0
+    container_name: enterprise-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - enterprise-order-network
+
   gateway:
     build:
       context: .
@@ -115,10 +349,16 @@ services:
     container_name: enterprise-gateway
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      JWT_SECRET: phase12-dev-only-shared-secret-change-in-production-32bytes-min
     ports:
       - "8080:8080"
     depends_on:
       redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
       customer-service:
         condition: service_started
@@ -126,12 +366,36 @@ services:
         condition: service_started
       order-service:
         condition: service_started
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      shipping-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+    networks:
+      - enterprise-order-network
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    container_name: enterprise-ui
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway:
+        condition: service_started
     networks:
       - enterprise-order-network
 
 volumes:
   postgres_data:
   redis_data:
+  grafana_data:
 
 networks:
   enterprise-order-network:

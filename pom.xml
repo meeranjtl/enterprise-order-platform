@@ -13,6 +13,13 @@
     <name>Enterprise Order Platform</name>
     <description>Multi-service order processing platform</description>
 
+    <repositories>
+        <repository>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
+
     <modules>
         <module>services/shared-library</module>
         <module>services/gateway</module>
@@ -35,6 +42,12 @@
         <java.version>21</java.version>
         <lombok.version>1.18.30</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <!-- 1.21.4+ required: Docker Engine 29 raised its minimum API version,
+             which breaks the older docker-java bundled with Testcontainers <= 1.21.3 -->
+        <testcontainers.version>1.21.4</testcontainers.version>
+        <!-- Not managed by the Spring Boot BOM (unlike micrometer-registry-prometheus /
+             micrometer-tracing-bridge-brave / zipkin-reporter-brave, which are). -->
+        <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
     </properties>
 
     <dependencyManagement>
@@ -79,26 +92,53 @@
                 <version>2.1.0</version>
             </dependency>
 
+            <!-- Structured JSON logging (Phase 11) -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback-encoder.version}</version>
+            </dependency>
+
             <!-- TestContainers -->
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>junit-jupiter</artifactId>
-                <version>1.19.1</version>
+                <version>${testcontainers.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>kafka</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Avro -->
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro</artifactId>
+                <version>1.11.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-avro-serializer</artifactId>
+                <version>7.5.0</version>
             </dependency>
 
             <!-- WireMock (standalone bundles Jetty; avoids reactive classpath conflicts) -->
@@ -108,12 +148,33 @@
                 <version>3.5.4</version>
                 <scope>test</scope>
             </dependency>
+
+            <!-- spring-kafka-test (EmbeddedKafka) needs no entry here: the Spring Boot
+                 BOM already manages its version. A version-less managed entry would
+                 shadow the BOM and break resolution in consuming modules. -->
         </dependencies>
     </dependencyManagement>
 
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.avro</groupId>
+                    <artifactId>avro-maven-plugin</artifactId>
+                    <version>1.11.3</version>
+                    <executions>
+                        <execution>
+                            <phase>generate-sources</phase>
+                            <goals>
+                                <goal>schema</goal>
+                            </goals>
+                            <configuration>
+                                <sourceDirectory>${project.basedir}/src/main/avro</sourceDirectory>
+                                <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
@@ -142,16 +203,25 @@
                         <source>21</source>
                         <target>21</target>
                         <parameters>true</parameters>
+                        <!-- Lombok MUST run before MapStruct so the generated getters/setters
+                             are visible to the mapper processor; lombok-mapstruct-binding keeps
+                             the two processors cooperative. Wrong order produces empty mapper
+                             implementations at build time. -->
                         <annotationProcessorPaths>
-                            <path>
-                                <groupId>org.mapstruct</groupId>
-                                <artifactId>mapstruct-processor</artifactId>
-                                <version>${mapstruct.version}</version>
-                            </path>
                             <path>
                                 <groupId>org.projectlombok</groupId>
                                 <artifactId>lombok</artifactId>
                                 <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok-mapstruct-binding</artifactId>
+                                <version>0.2.0</version>
+                            </path>
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
                             </path>
                         </annotationProcessorPaths>
                     </configuration>

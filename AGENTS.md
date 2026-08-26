@@ -1,443 +1,94 @@
 # AGENTS.md - AI Agent Guidance for Enterprise Order Platform
 
-**Purpose:** Essential knowledge for AI coding agents to be immediately productive in this microservices architecture codebase.
+**Purpose:** Essential knowledge for AI coding agents to be immediately productive in this microservices codebase. Detail that doesn't need to be loaded for every task lives in `docs/` — read those on demand, not by default.
 
 ---
 
 ## Quick Context
 
-This is a **14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka). Built as a portfolio/learning project demonstrating enterprise architecture, operational excellence, and engineering maturity. Currently in **Phase 6 complete (Inventory Service)** — foundation, customer-service (:8081), product-service (:8082), gateway (:8080), order-service (:8083), and inventory-service (:8084) are implemented; next up is Phase 7 (Payment Service).
+**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **Currently: Phase 13 complete (React UI).** Next: Phase 14 (Docker Orchestration).
 
-**Gateway note:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. It generates/propagates `X-Correlation-Id`; shared-library's `CorrelationIdLoggingFilter` puts it in the MDC of servlet services. All client traffic should go through `:8080`.
+**Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 19 + Vite + TypeScript (Phase 13), Docker Compose, Resilience4j
+**Project Type:** Maven multi-module (9 services + gateway + shared-library) + a separate `ui/` npm project — not a Maven module, own `package.json`/build toolchain; see [PHASE_13_COMPLETE.md](PHASE_13_COMPLETE.md)
 
-**Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 18, Docker Compose, Resilience4j  
-**Project Type:** Maven multi-module with 10 services + shared library  
-**Tech Leadership:** Event-driven architecture, CQRS/Saga patterns (planned), microservices with distributed tracing
-
----
-
-## Architecture Overview (Read First!)
-
-### Service Topology
-```
-React UI (Phase 13) → API Gateway (Spring Cloud Gateway) → 9 Microservices
-                                        ↓
-                    Kafka (Event Bus) - decouples services
-                                        ↓
-                    PostgreSQL (shared DB per phase design)
-                                        ↓
-        Prometheus/Grafana/Zipkin (Observability Stack)
-```
-
-**Current Services** (see `services/` directory):
-- **shared-library**: Common exceptions, DTOs, validators, response wrappers, logging utilities
-- **gateway**: API Gateway (Phase 4)
-- **customer-service**: Customer CRUD (Phase 2)
-- **product-service**: Product catalog (Phase 3)
-- **order-service**: Order processing (Phase 5)
-- **inventory-service**: Stock management (Phase 6)
-- **payment-service**: Payment handling (Phase 7)
-- **shipping-service**: Fulfillment (Phase 9)
-- **notification-service**: Email/SMS (Phase 9)
-- **analytics-service**: Metrics/reporting (Phase 10)
-
-**Critical Design Decision:** All services depend on `shared-library` for common code. When adding cross-cutting concerns (exceptions, DTOs, validators), add to `shared-library` first, then services can consume.
+**Critical:** the gateway is reactive (Netty) and must never depend on the servlet-based shared-library. All client traffic routes through `:8080`. Full topology, ports, Kafka topics, and saga flow: **[docs/architecture.md](docs/architecture.md)**. Non-negotiable rules (exception handling, idempotency, event-vs-HTTP, gateway route wiring, anti-patterns): **[docs/domain-rules.md](docs/domain-rules.md)**. Hard-won implementation gotchas by phase: **[docs/gotchas.md](docs/gotchas.md)**.
 
 ---
 
-## Build & Deployment Workflows
+## Build & Deployment
 
-### Maven Commands (Parent POM at root)
 ```powershell
-# Build everything (all services + shared-library)
+# Build everything
 mvn clean install
 
-# Build specific service only
+# Build/run/test a single service
 mvn clean install -pl services/customer-service
+mvn -pl services/customer-service spring-boot:run
+mvn test -pl services/customer-service
 
 # Skip tests for faster iteration
 mvn clean install -DskipTests
 
-# Run single service with Spring Boot plugin
-mvn -pl services/customer-service spring-boot:run
-
-# Run tests only for a specific service
-mvn test -pl services/customer-service
-
-# Check test coverage
-mvn clean install jacoco:report -pl services/customer-service
-```
-
-### Docker Compose (Infrastructure)
-```powershell
-# Start PostgreSQL only (for local development)
-docker compose up postgres
-
-# View logs
+# Docker infra
+docker compose up postgres        # Postgres only, for local dev
+docker compose up -d --build      # full stack — rebuild services SEQUENTIALLY, see docs/gotchas.md
 docker compose logs -f postgres
-
-# Stop all
 docker compose down
 ```
 
-**Parent POM Location:** `C:\dev\projects\enterprise-order-platform\pom.xml`  
-**Dependency Management:** Spring Boot BOM (3.3.0), Spring Cloud (2023.0.3), Lombok, MapStruct configured in parent  
-**Java Version:** 21 (set in properties), enforced via maven-compiler-plugin
+**Parent POM:** `pom.xml` at repo root — Spring Boot BOM 3.3.0, Spring Cloud 2023.0.3, Lombok, MapStruct. **Java 21**, enforced via maven-compiler-plugin. Never redeclare dependency versions in child POMs.
 
-### Key Build Artifacts
-- Each service builds as: `services/{service-name}/target/{service-name}-1.0.0.jar`
-- JAR includes embedded Tomcat, PostgreSQL driver, Spring Boot runtime
-- Docker image naming: `{service-name}:1.0.0` (build command in each Dockerfile)
+Build artifact: `services/{service-name}/target/{service-name}-1.0.0.jar`. Docker image: `{service-name}:1.0.0`.
 
----
-
-## Code Organization & Naming Conventions
-
-### Package Structure (per service)
+**UI (`ui/`, Phase 13):**
+```powershell
+cd ui
+npm install
+npm run dev              # Vite dev server, http://localhost:5173, talks to gateway at :8080
+npx tsc -b --noEmit       # typecheck
+npm run lint
+npm run build             # production bundle -> ui/dist
+docker compose build ui && docker compose up -d ui   # nginx image, served on :3000
 ```
-com.enterprise.order.{service-name}/
-├── controller/          # @RestController endpoints
-├── service/             # @Service business logic  
-├── repository/          # Spring Data JpaRepository
-├── entity/              # @Entity JPA models
-├── dto/                 # Request/Response objects
-├── mapper/              # MapStruct @Mapper interfaces
-├── exception/           # Service-specific exceptions (if any)
-├── config/              # Service-specific @Configuration
-└── {ServiceName}Application.java  # @SpringBootApplication entry point
-```
-
-### Naming Conventions
-- **Controllers:** `{Resource}Controller` (e.g., `CustomerController`)
-- **Services:** `{Resource}Service` (e.g., `CustomerService`)
-- **Repositories:** `{Resource}Repository extends JpaRepository` (e.g., `CustomerRepository`)
-- **Entities:** `{Resource}` (e.g., `Customer`) with `@Entity`
-- **DTOs:** `{Resource}DTO` (e.g., `CustomerDTO`) for external APIs
-- **Mappers:** `{Resource}Mapper extends MapStructMapper` (e.g., `CustomerMapper`)
-- **Exception classes:** Extend `com.enterprise.order.shared.exception.ApplicationException`
-
-### Critical Libraries (Understand These)
-- **Lombok:** `@Data`, `@Builder`, `@RequiredArgsConstructor` reduce boilerplate; processor in maven-compiler-plugin
-- **MapStruct:** DTO ↔ Entity mapping; uses `@Mapper(componentModel = "spring")` to generate Spring beans
-- **Jakarta Validation:** `@NotBlank`, `@Email` on DTOs; custom validators extend `ConstraintValidator`
-- **Springdoc OpenAPI:** Generates Swagger UI at `/swagger-ui.html`; configure in `application.yml`
-
-### Shared Library Organization
-All cross-cutting code lives in `services/shared-library/src/main/java/com/enterprise/order/shared/`:
-- **exception/**: `ApplicationException`, `ResourceNotFoundException`, `BadRequestException`, etc. — all services throw these
-- **dto/**: `BaseResponse<T>` wrapper for all API responses (success/error patterns)
-- **validation/**: Custom validators (e.g., `@ValidPhone`, `@ValidAddress` with regex patterns)
-- **config/**: `GlobalExceptionHandler` (@RestControllerAdvice) handles all app exceptions → RFC 7807 Problem Details format
-- **util/**: Common utilities (logging, correlation IDs, etc.)
-
-**When adding new cross-cutting code:** Add to shared-library, rebuild (`mvn clean install -pl services/shared-library`), then services can consume.
+Vite bakes `VITE_API_URL` into the static bundle at build time (default `http://localhost:8080` — correct for every local/docker-compose setup since the *browser*, not the container, calls the gateway). Never call a service port (`:8081`-`:8088`) directly from the UI — always through the gateway at `:8080`.
 
 ---
 
-## Key Development Patterns
+## Code Conventions
 
-### Exception Handling Pattern
-```java
-// Throw application exceptions (never generic Exception)
-throw new ResourceNotFoundException("Customer", customerId);
+- **Naming:** `{Resource}Controller` / `{Resource}Service` / `{Resource}Repository extends JpaRepository` / `{Resource}` entity / `{Resource}DTO` / `{Resource}Mapper`.
+- **Package layout, shared-library organization, and the "add to shared-library first" rule:** [docs/architecture.md](docs/architecture.md).
+- **Reference implementation:** `services/customer-service` is the most complete example of the standard layering — follow its patterns for new endpoints, exceptions, validation, and tests rather than reinventing them.
+- **Formatting:** standard language style guides (PEP 8, Prettier/Airbnb, etc.); no minified/compressed output; preserve vertical spacing.
+- **Logging:** SLF4J (`LoggerFactory.getLogger(...)`), JSON-structured (Phase 11) — see [docs/architecture.md](docs/architecture.md) for the logback setup.
+- **Commit messages:** `{phase}-{component}: {description}` (e.g. `phase-5-order-service: add order validation logic`).
 
-// GlobalExceptionHandler automatically converts to RFC 7807 response:
-// { "status": 404, "title": "Not Found", "detail": "Customer 123 not found", ... }
-```
+## Database Migrations
 
-### Service Method Pattern
-```java
-@Service
-@RequiredArgsConstructor  // Lombok constructor injection
-@Transactional           // Automatic transaction management
-public class CustomerService {
-    private final CustomerRepository repo;
-    private final CustomerMapper mapper;  // MapStruct
-    
-    public CustomerDTO getById(Long id) {
-        return mapper.toDTO(repo.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Customer", id)));
-    }
-}
-```
+Flyway, `services/{service}/src/main/resources/db/migration/`, naming `V{N}__{description}.sql`, auto-runs on startup. `hibernate.ddl-auto: validate` always — see [docs/domain-rules.md](docs/domain-rules.md).
 
-### REST Endpoint Pattern
-```java
-@RestController
-@RequestMapping("/api/v1/customers")
-@RequiredArgsConstructor
-public class CustomerController {
-    private final CustomerService service;
-    
-    @GetMapping("/{id}")
-    @Operation(summary = "Get customer by ID")  // Swagger
-    public BaseResponse<CustomerDTO> getCustomer(@PathVariable Long id) {
-        return BaseResponse.success(service.getById(id));
-    }
-}
-```
+## Testing
 
-### Validation Pattern
-Use JSR-303 annotations on DTOs + custom validators for complex logic:
-```java
-@Data
-public class CustomerDTO {
-    @NotBlank
-    private String name;
-    
-    @ValidPhone  // Custom validator
-    private String phone;
-}
-```
-
-### Testing Pattern
-```java
-@ExtendWith(MockitoExtension.class)
-class CustomerServiceTest {
-    @Mock private CustomerRepository repo;
-    @InjectMocks private CustomerService service;
-    
-    @BeforeEach
-    void setup() { /* initialization */ }
-    
-    @Test
-    void testGetById_notFound() {
-        when(repo.findById(999L)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, 
-            () -> service.getById(999L));
-    }
-}
-```
-
-### Spring Boot Configuration Pattern
-Each service has `application.yml` configuring:
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/enterprise_order
-  jpa:
-    hibernate:
-      ddl-auto: validate  # Use Flyway for migrations
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-  
-  # Logging as JSON
-  application:
-    name: customer-service
-  
-  # Springdoc/Swagger
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-```
+- Unit tests mock dependencies; integration tests (`XxxIT.java`, `class XxxIT`) use TestContainers PostgreSQL — see [docs/gotchas.md](docs/gotchas.md) for the Surefire naming gotcha.
+- Target 80%+ line coverage on business logic (not Lombok-generated getters/setters).
+- Mock external calls (payment gateway, email/SMS).
 
 ---
 
-## Database Migrations & Schema
+## Phase Workflow
 
-**Migration Tool:** Flyway (automated SQL versioning)  
-**Location:** `services/{service}/src/main/resources/db/migration/`  
-**Naming Convention:** `V1__initial_schema.sql`, `V2__add_column.sql`, etc.
+Phases build sequentially; each is independently testable and deployable. Process for starting/finishing a phase is defined in root `CLAUDE.md`. Phase dependencies and a one-page overview: [PHASE_QUICK_REFERENCE.md](PHASE_QUICK_REFERENCE.md). Full technical spec per phase: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). Big-picture strategy: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
 
-**Pattern:** Flyway runs on service startup; scripts auto-discovered in `db/migration/` folder.
-
-**To add a new table:**
-1. Create `V{next_number}__{description}.sql` in migration folder
-2. Service startup auto-runs it
-3. Use `hibernate.ddl-auto: validate` (never `create` in production)
-
-**Database:** PostgreSQL 15 shared across services (Phase 1 design; later phases may introduce database-per-service)
+**When closing a phase:** update this file's Quick Context (phase number, next phase), append new gotchas to [docs/gotchas.md](docs/gotchas.md), append new invariants to [docs/domain-rules.md](docs/domain-rules.md) or topology changes to [docs/architecture.md](docs/architecture.md) if applicable — do **not** re-narrate the phase's full architecture/validation here; that belongs in `PHASE_N_COMPLETE.md` only.
 
 ---
 
-## Testing Strategy
+## Anti-Patterns to Reject
 
-### Scope of Tests
-- **Unit Tests:** Mock all dependencies; test service logic in isolation (fastest)
-- **Integration Tests:** Use TestContainers for PostgreSQL; test service + DB interactions
-- **E2E Tests:** (Future phases) Test complete workflows across services
-
-### TestContainers Usage (Integration Tests)
-```java
-@Testcontainers  // Annotation
-@SpringBootTest
-class CustomerServiceIntegrationTest {
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15");
-    
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-    }
-}
-```
-
-### Test Coverage Target
-- Aim for 80%+ line coverage per service
-- Focus on business logic, not getters/setters (Lombok handles those)
-- Mock external service calls (payment gateway, email service, etc.)
+See the full list with rationale in [docs/domain-rules.md](docs/domain-rules.md#anti-patterns-reject-in-review). Summary: no controller-layer DB queries, no swallowed exceptions, no hardcoded config, no HTTP calls between services for anything Phase 8+ should route through Kafka, no missing `@Transactional`, no DTOs referencing `@Entity` directly.
 
 ---
 
-## CI/CD & Deployment
-
-**CI/CD Framework:** GitHub Actions (not yet fully implemented in Phase 1, but planned)  
-**Deployment:** Docker Compose (Phase 14); Kubernetes later  
-**Artifact Registry:** (To be configured) Docker Hub or private registry
-
-**Phase 1 Status:** Docker Compose skeleton ready; PostgreSQL container configured; other services' Dockerfiles ready.
-
----
-
-## Common Tasks & Workflows
-
-### "I need to add a new REST endpoint"
-1. Add method to `{Resource}Service` class
-2. Add DTO for request/response in `dto/` folder  
-3. Add endpoint in `{Resource}Controller` with `@GetMapping/@PostMapping`
-4. Use `BaseResponse.success()` wrapper for response
-5. Add `@Operation` annotation for Swagger documentation
-6. Test with `@WebMvcTest` or MockMvc
-
-### "I need to handle a new exception scenario"
-1. Check if exception exists in `shared-library/exception/`
-2. If not, create new exception class extending `ApplicationException`
-3. GlobalExceptionHandler automatically converts to RFC 7807 response
-4. Test with `assertThrows` in unit tests
-
-### "I need to add a new database field"
-1. Add field to `@Entity` class with `@Column` annotation
-2. Create migration script: `V{N}__add_{field}_to_{table}.sql`
-3. Update `{Resource}DTO` to expose field
-4. Update MapStruct `{Resource}Mapper` if mapping needed
-5. Run `mvn flyway:migrate` to execute migration
-
-### "I need to validate an input parameter"
-1. Add JSR-303 annotation to DTO (`@NotBlank`, `@Email`, etc.)
-2. For complex validation, create custom `@Constraint` annotation in shared-library
-3. Implement `ConstraintValidator` interface
-4. Spring Boot auto-validates DTO before controller method executes
-5. Validation errors return 400 with field-level error messages
-
-### "I need to call another service"
-1. Use `RestTemplate` or `WebClient` bean (configure in shared-library)
-2. Handle `RestClientException` gracefully (will add Resilience4j retry logic in later phases)
-3. Implement timeout and circuit breaker patterns (Phase 7+)
-4. Eventually (Phase 8) replace with Kafka event-based communication
-
-### "I need to add metrics/monitoring"
-1. Use Micrometer annotations (`@Timed`, `@Counted`)
-2. Expose metrics endpoint: `GET /actuator/metrics` (enabled in application.yml)
-3. Phase 11 adds Prometheus scraping, Grafana dashboards, Zipkin tracing
-
----
-
-## Project Conventions & Patterns to Follow
-
-### Code Quality Standards
-- **Format:** Spring Boot conventions (IntelliJ IDEA defaults OK)
-- **Logging:** Use SLF4J (`private static final Logger log = LoggerFactory.getLogger(...)`)
-- **Comments:** Document *why*, not *what*; code should be self-documenting
-- **Error Handling:** Never swallow exceptions; always log or throw
-- **Null Safety:** Use `Optional<T>` for JPA queries, avoid null checks
-- **Transactions:** Apply `@Transactional` at service level, let Spring manage TX boundaries
-
-### Commit Message Convention
-```
-{phase}-{component}: {description}
-Examples:
-- phase-2-customer-service: implement get customer by ID endpoint
-- phase-5-order-service: add order validation logic
-- shared: add custom email validator
-```
-
-### Documentation Requirements
-- Each service has README.md explaining purpose, setup, API examples
-- Architecture decisions documented in service README
-- Database schema changes documented in migration comments
-- Complex business logic documented with inline comments
-
-### Phase Progression
-- Phases build sequentially (must complete Phase 1 before Phase 2)
-- Each phase is independently testable and deployable
-- Phase transitions require: all tests passing, documentation complete, Docker image builds
-- See `PHASE_QUICK_REFERENCE.md` for phase dependencies
-
----
-
-## Key Files for Understanding the Codebase
-
-### Architecture & Planning
-- `PROJECT_OVERVIEW.md` - 14-phase strategy, big picture
-- `PHASE_QUICK_REFERENCE.md` - One-page phase overview, dependencies
-- `IMPLEMENTATION_PLAN.md` - Detailed technical requirements per phase
-- `architecture/HLD.md` - High-level design (being populated as phases progress)
-
-### Build & Configuration
-- `pom.xml` (root) - Parent POM with dependency management
-- `services/shared-library/pom.xml` - Common library
-- Each service has its own pom.xml with inherited parent
-
-### Foundation Code to Study
-- `services/shared-library/src/main/java/com/enterprise/order/shared/exception/` - Exception hierarchy
-- `services/shared-library/src/main/java/com/enterprise/order/shared/dto/BaseResponse.java` - Response wrapper
-- `services/customer-service/src/main/java/com/enterprise/order/customer/` - Example service implementation
-- `services/customer-service/src/main/resources/application.yml` - Configuration example
-
-### Development Getting Started
-- `PHASE_1_GETTING_STARTED.md` - Step-by-step Phase 1 setup
-- `README.md` (root) - Quick start commands
-
----
-
-## Debugging Tips
-
-### Service Won't Start?
-1. Check `application.yml` datasource URL points to correct PostgreSQL
-2. Verify PostgreSQL running: `docker compose ps`
-3. Run migrations: `mvn flyway:migrate -pl services/{service}`
-4. Check Java 21 installed: `java -version`
-
-### Test Failures?
-1. Ensure TestContainers PostgreSQL image available: `docker pull postgres:15`
-2. Check mock setup in @BeforeEach method
-3. Verify shared-library builds: `mvn clean install -pl services/shared-library`
-
-### Build Failures?
-1. Clear cache: `mvn clean` before retrying
-2. Update IDE annotation processors if using Lombok/MapStruct
-3. Verify parent pom.xml dependencies defined (don't redeclare versions in child POMs)
-
-### Swagger/OpenAPI Not Showing?
-1. Service must include `springdoc-openapi-starter-webmvc-ui` dependency
-2. Hit `http://localhost:{port}/swagger-ui.html`
-3. Check application.yml enables springdoc
-
----
-
-## When in Doubt, Reference These
-
-1. **Existing Customer Service** - Most complete example of Phase 2
-2. **Shared Library** - Source of truth for common patterns
-3. **PROJECT_OVERVIEW.md** - High-level architecture
-4. **PHASE_QUICK_REFERENCE.md** - Quick navigation and commands
-5. **Spring Boot & Spring Cloud docs** - Official source for framework questions
-
----
-
-## Red Flags / Anti-Patterns (Avoid These)
-
-❌ **Direct database queries in controller** - Should be in service layer  
-❌ **Catching and swallowing exceptions** - Log and rethrow or throw ApplicationException  
-❌ **Hardcoded values** - Use application.yml configuration  
-❌ **Null pointer checks everywhere** - Use Optional<T> or Objects.requireNonNull()  
-❌ **Service-to-service HTTP calls during Phase 8+** - Should use Kafka events  
-❌ **Missing @Transactional on service methods** - Ensures TX boundaries  
-❌ **DTOs with direct @Entity references** - Always map, maintains separation of concerns  
-
----
-
-**Last Updated:** July 29, 2026
-**For Phase:** Phase 6 complete (Inventory Service — reservation, release, adjustment, transaction audit, and idempotency)
-**Next Phase:** Payment Service (Phase 7) — depends on Phases 1–6; see PHASE_QUICK_REFERENCE.md
+**Last Updated:** August 26, 2026
+**Current Phase:** Phase 13 complete (React UI — full dashboard, CRUD, orders/payments, Kafka event visibility, system health, auth; see [PHASE_13_COMPLETE.md](PHASE_13_COMPLETE.md))
+**Next Phase:** Phase 14 (Docker Orchestration — the `ui` service is already wired into `docker-compose.yml` and verified; remaining scope is circuit-breaker/saga-pattern documentation and final end-to-end polish per [PHASE_QUICK_REFERENCE.md](PHASE_QUICK_REFERENCE.md))

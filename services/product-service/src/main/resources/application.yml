@@ -1,6 +1,11 @@
 spring:
   application:
     name: product-service
+  kafka:
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
   datasource:
     url: jdbc:postgresql://localhost:5432/enterprise_order?currentSchema=product
     username: postgres
@@ -25,6 +30,9 @@ spring:
     table: flyway_schema_history_product
     create-schemas: true
 
+jwt:
+  secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
+
 server:
   port: 8082
   servlet:
@@ -41,15 +49,24 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info
+        include: health,metrics,info,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
+# Log format (JSON) comes from logback-spring.xml; this block only controls levels.
 logging:
-  pattern:
-    # Include the correlation ID (set by shared-library's CorrelationIdLoggingFilter) in every line
-    level: "%5p [corr=%X{correlationId:-}]"
   level:
     com.enterprise.order: INFO
     org.springframework.web: DEBUG

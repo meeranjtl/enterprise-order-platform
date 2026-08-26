@@ -3,5 +3,21 @@
 **/target/
 .git/
 .idea/
+.vscode/
+.github/
 *.log
 .claude/
+
+# Frontend build artifacts/deps — ui/node_modules alone is ~270MB and was
+# being re-sent as build context on every one of the 9 service builds when
+# this was a blanket `ui/` exclude. Phase 13 added ui/Dockerfile, which does
+# need ui/ sources in context, so only the generated/installed directories
+# are excluded now, not the whole tree.
+ui/node_modules/
+ui/dist/
+
+# Docs and logs — not needed inside any image.
+logs/
+docs/
+architecture/
+*.md

@@ -11,18 +11,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+/**
+ * Full-context integration test against a Testcontainers PostgreSQL.
+ *
+ * <p>Class name matches the file name (repo convention, see OrderServiceIT /
+ * GatewayRoutingIT) so Surefire's {@code **&#47;*IT.java} include picks it up.
+ * Skipped automatically in environments without Docker.
+ */
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
-class CustomerServiceIntegrationTest {
+class CustomerServiceIT {
 
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
@@ -32,7 +38,12 @@ class CustomerServiceIntegrationTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        // Mirror the Docker Compose URL (?currentSchema=customer) so unqualified table
+        // names resolve in the service schema for Hibernate's ddl-auto: validate.
+        registry.add("spring.datasource.url", () -> {
+            String url = postgres.getJdbcUrl();
+            return url + (url.contains("?") ? "&" : "?") + "currentSchema=customer";
+        });
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
     }
@@ -138,4 +149,3 @@ class CustomerServiceIntegrationTest {
         assertFalse(customerRepository.existsById(saved.getId()));
     }
 }
-

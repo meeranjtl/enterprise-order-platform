@@ -41,6 +41,21 @@
             <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
         </dependency>
 
+        <!-- Security (Phase 12): reactive JWT resource-server validation. Not via
+             shared-library (reactive/servlet boundary) — same pattern as every other
+             Phase 11 dependency in this pom. spring-boot-starter-oauth2-resource-server
+             carries both the servlet and reactive (Nimbus*Reactive*JwtDecoder) variants;
+             WebFlux being on the classpath (via spring-cloud-starter-gateway) is what
+             makes the reactive path the one that applies here. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
         <!-- Aggregated Swagger UI (reactive variant) -->
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -64,6 +79,32 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-logging</artifactId>
+        </dependency>
+
+        <!-- Structured JSON logging (Phase 11). NOT via shared-library (reactive/servlet
+             boundary) — duplicated here, same as every other Phase 11 dependency below. -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+        </dependency>
+
+        <!-- Prometheus metrics (Phase 11) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Distributed tracing (Phase 11): Micrometer Tracing bridged to Brave,
+             reported to Zipkin. Spring Cloud Gateway has native reactive tracing
+             support via these same starters (no WebFlux-specific variant needed). -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
         </dependency>
 
         <!-- Lombok -->

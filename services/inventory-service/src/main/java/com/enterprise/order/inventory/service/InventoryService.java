@@ -17,6 +17,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.enterprise.order.shared.outbox.OutboxPublisher;
+import com.enterprise.order.shared.events.InventoryReservedEvent;
+import com.enterprise.order.shared.events.PackingListProvidedEvent;
+import com.enterprise.order.shared.events.PackingListRequestedEvent;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -25,6 +30,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final InventoryTransactionRepository transactionRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final OutboxPublisher outboxPublisher;
 
     @Transactional(readOnly = true)
     public InventoryDTO get(Long productId) {
@@ -94,6 +100,40 @@ public class InventoryService {
         });
     }
 
+    /**
+     * Async request/reply pattern (Phase 9): shipping-service asks for the packing
+     * list of a paid order. We reply with the items reserved for that order.
+     *
+     * Idempotency is handled downstream: shipping applies the reply only while the
+     * shipment is PENDING, so a redelivered request simply regenerates an identical
+     * reply that shipping ignores. No inventory state is mutated here.
+     */
+    public void providePackingList(PackingListRequestedEvent request) {
+        Long orderId = Long.valueOf(request.getOrderId());
+
+        java.util.List<InventoryTransaction> reserves =
+                transactionRepository.findByOrderIdAndType(orderId, TransactionType.RESERVE);
+
+        java.util.List<PackingListProvidedEvent.PackingItem> items = reserves.stream()
+                .map(tx -> PackingListProvidedEvent.PackingItem.builder()
+                        .productId(tx.getProductId().toString())
+                        .quantity(tx.getQuantity())
+                        .build())
+                .toList();
+
+        PackingListProvidedEvent reply = PackingListProvidedEvent.builder()
+                .requestId(request.getRequestId())
+                .orderId(request.getOrderId())
+                .shipmentId(request.getShipmentId())
+                .items(items)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        // Key by orderId so all replies for the same order land on one partition in order.
+        outboxPublisher.storeEvent(orderId.toString(), PackingListProvidedEvent.EVENT_TYPE,
+                PackingListProvidedEvent.TOPIC, orderId.toString(), reply);
+    }
+
     private InventoryDTO process(String operation, String idempotencyKey, Work work) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw new BadRequestException("Idempotency-Key header is required");
@@ -123,13 +163,30 @@ public class InventoryService {
             int quantity,
             String reason) {
         inventoryRepository.save(inventory);
-        return transactionRepository.save(InventoryTransaction.builder()
+        InventoryTransaction tx = transactionRepository.save(InventoryTransaction.builder()
                 .productId(inventory.getProductId())
                 .orderId(orderId)
                 .type(type)
                 .quantity(quantity)
                 .reason(reason)
                 .build());
+
+        // Store InventoryReservedEvent (or InventoryReleased) in outbox for reliable publishing
+        InventoryReservedEvent event = InventoryReservedEvent.builder()
+                .reservationId(tx.getId().toString())
+                .orderId(orderId == null ? null : orderId.toString())
+                .productId(inventory.getProductId().toString())
+                .quantity(quantity)
+                .status(type == TransactionType.RESERVE ? InventoryReservedEvent.ReservationStatus.CONFIRMED : InventoryReservedEvent.ReservationStatus.RELEASED)
+                .failureReason(null)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+
+        String topic = InventoryReservedEvent.TOPIC;
+        String eventType = InventoryReservedEvent.EVENT_TYPE;
+        outboxPublisher.storeEvent(tx.getId().toString(), eventType, topic, tx.getId().toString(), event);
+
+        return tx;
     }
 
     private Inventory locked(Long productId) {

@@ -39,7 +39,12 @@ class ProductServiceIT {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        // Mirror the Docker Compose URL (?currentSchema=product) so unqualified table
+        // names resolve in the service schema for Hibernate's ddl-auto: validate.
+        registry.add("spring.datasource.url", () -> {
+            String url = postgres.getJdbcUrl();
+            return url + (url.contains("?") ? "&" : "?") + "currentSchema=product";
+        });
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
     }

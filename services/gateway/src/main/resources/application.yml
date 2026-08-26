@@ -4,19 +4,14 @@ spring:
 
   cloud:
     gateway:
-      # Centralized CORS for browser clients (React UI arrives in Phase 13)
-      globalcors:
-        cors-configurations:
-          "[/**]":
-            allowedOriginPatterns:
-              - "http://localhost:*"
-            allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-            allowedHeaders: [Authorization, Content-Type, X-Correlation-Id, X-Requested-With, Accept]
-            exposedHeaders: [X-Correlation-Id]
-            allowCredentials: true
-            maxAge: 3600
+      # CORS moved to a single Java-config CorsWebFilter bean (CorsConfig, Phase 13) —
+      # see that class for why. Do not re-add spring.cloud.gateway.globalcors here:
+      # once any CorsWebFilter bean exists, Spring Security's WebFlux auto-config
+      # detects and enforces it itself, and having both active double-applies
+      # Access-Control-Allow-* headers, which browsers reject as invalid.
 
-      # Applied to every route: Redis-backed token bucket, keyed by client IP.
+      # Applied to every route: Redis-backed token bucket, keyed by JWT subject when
+      # present (Phase 12), else client IP (see RateLimiterConfig.jwtKeyResolver).
       # Per-endpoint tuning: add a RequestRateLimiter filter with its own
       # redis-rate-limiter.* args to an individual route (overrides this default).
       default-filters:
@@ -25,9 +20,19 @@ spring:
             redis-rate-limiter.replenishRate: 10
             redis-rate-limiter.burstCapacity: 20
             redis-rate-limiter.requestedTokens: 1
-            key-resolver: "#{@ipKeyResolver}"
+            key-resolver: "#{@jwtKeyResolver}"
 
       routes:
+        - id: auth
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: customerService
+                fallbackUri: forward:/fallback/customer-service
+
         - id: customer-service
           uri: http://localhost:8081
           predicates:
@@ -42,6 +47,20 @@ spring:
           uri: http://localhost:8082
           predicates:
             - Path=/api/v1/products/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: productService
+                fallbackUri: forward:/fallback/product-service
+
+        # Categories live in product-service (CategoryController) but had no route
+        # of their own — added for Phase 13 (React UI Products page category
+        # filter). Shares the productService circuit breaker/fallback: same JVM,
+        # same failure domain, no reason to duplicate the resilience4j instance.
+        - id: category-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/categories/**
           filters:
             - name: CircuitBreaker
               args:
@@ -68,6 +87,45 @@ spring:
                 name: inventoryService
                 fallbackUri: forward:/fallback/inventory-service
 
+        - id: payment-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: paymentService
+                fallbackUri: forward:/fallback/payment-service
+
+        - id: shipping-service
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/v1/shipments/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: shippingService
+                fallbackUri: forward:/fallback/shipping-service
+
+        - id: notification-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notificationService
+                fallbackUri: forward:/fallback/notification-service
+
+        - id: analytics-service
+          uri: http://localhost:8088
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: analyticsService
+                fallbackUri: forward:/fallback/analytics-service
         # Swagger aggregation: proxy each service's OpenAPI docs through the gateway
         - id: customer-service-api-docs
           uri: http://localhost:8081
@@ -97,17 +155,54 @@ spring:
           filters:
             - RewritePath=/inventory-service/api-docs, /api-docs
 
-        # Future services (added as their phases land):
-        # - inventory-service    :8084  /api/v1/inventory/**
-        # - payment-service      :8085  /api/v1/payments/**
-        # - shipping-service     :8086  /api/v1/shipping/**
-        # - notification-service :8087  /api/v1/notifications/**
-        # - analytics-service    :8088  /api/v1/analytics/**
+        - id: payment-service-api-docs
+          uri: http://localhost:8085
+          predicates:
+            - Path=/payment-service/api-docs
+          filters:
+            - RewritePath=/payment-service/api-docs, /api-docs
+
+        - id: shipping-service-api-docs
+          uri: http://localhost:8086
+          predicates:
+            - Path=/shipping-service/api-docs
+          filters:
+            - RewritePath=/shipping-service/api-docs, /api-docs
+
+        - id: notification-service-api-docs
+          uri: http://localhost:8087
+          predicates:
+            - Path=/notification-service/api-docs
+          filters:
+            - RewritePath=/notification-service/api-docs, /api-docs
+
+        - id: analytics-service-api-docs
+          uri: http://localhost:8088
+          predicates:
+            - Path=/analytics-service/api-docs
+          filters:
+            - RewritePath=/analytics-service/api-docs, /api-docs
 
   data:
     redis:
       host: localhost
       port: 6379
+
+# Phase 13: System Health UI page. Separate from the routes list above (that's
+# Gateway's routing DSL, not a plain map) — see DownstreamServiceProperties.
+app:
+  downstream-services:
+    customer-service: http://localhost:8081
+    product-service: http://localhost:8082
+    order-service: http://localhost:8083
+    inventory-service: http://localhost:8084
+    payment-service: http://localhost:8085
+    shipping-service: http://localhost:8086
+    notification-service: http://localhost:8087
+    analytics-service: http://localhost:8088
+
+jwt:
+  secret: phase12-dev-only-shared-secret-change-in-production-32bytes-min
 
 server:
   port: 8080
@@ -116,12 +211,23 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info,gateway
+        include: health,metrics,info,gateway,prometheus
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
     gateway:
       enabled: true   # expose /actuator/gateway/routes|routefilters|globalfilters
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
 
 springdoc:
   swagger-ui:
@@ -136,6 +242,14 @@ springdoc:
         url: /order-service/api-docs
       - name: Inventory Service
         url: /inventory-service/api-docs
+      - name: Payment Service
+        url: /payment-service/api-docs
+      - name: Shipping Service
+        url: /shipping-service/api-docs
+      - name: Notification Service
+        url: /notification-service/api-docs
+      - name: Analytics Service
+        url: /analytics-service/api-docs
 
 logging:
   level:
@@ -163,6 +277,14 @@ resilience4j:
         baseConfig: default
       inventoryService:
         baseConfig: default
+      paymentService:
+        baseConfig: default
+      shippingService:
+        baseConfig: default
+      notificationService:
+        baseConfig: default
+      analyticsService:
+        baseConfig: default
   # The Spring Cloud Gateway CircuitBreaker filter applies a TimeLimiter whose
   # default timeout is 1s — override explicitly or every slow call would time out.
   timelimiter:
@@ -179,4 +301,11 @@ resilience4j:
         baseConfig: default
       inventoryService:
         baseConfig: default
-
+      paymentService:
+        baseConfig: default
+      shippingService:
+        baseConfig: default
+      notificationService:
+        baseConfig: default
+      analyticsService:
+        baseConfig: default

@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -58,6 +59,25 @@ public class GlobalExceptionHandler {
                         "BAD_REQUEST",
                         "Validation failed",
                         details
+                ));
+    }
+
+    /**
+     * {@code @PreAuthorize} denials throw this during controller method invocation — i.e.
+     * inside {@code DispatcherServlet}, already past {@code ExceptionTranslationFilter} at
+     * the filter-chain level. Spring MVC's own exception resolution (this
+     * {@code @RestControllerAdvice}) is what actually sees it, not the filter chain's
+     * {@code accessDeniedHandler}. Without this handler it falls through to the generic
+     * {@code Exception} handler below and comes back as a 500, not a 403.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<BaseResponse<?>> handleAccessDenied(
+            AccessDeniedException ex, WebRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(BaseResponse.error(
+                        "FORBIDDEN",
+                        "You do not have permission to access this resource",
+                        null
                 ));
     }
 

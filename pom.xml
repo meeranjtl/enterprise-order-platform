@@ -231,16 +231,20 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.2.5</version>
                     <configuration>
-                        <!-- Forces IPv4 for "localhost" resolution in tests. On GitHub Actions'
-                             Ubuntu runners, Netty's DNS resolver races IPv6 (::1) against IPv4
-                             (127.0.0.1) for loopback connections; when it picks the interface an
-                             embedded test server (WireMock, Lettuce/Redis Testcontainers, etc.)
-                             isn't listening on, every "localhost" call fails instantly with
-                             connection-refused. Never observed locally/in Docker Desktop, where
-                             IPv4 is preferred by default. See GatewayRoutingIT's CI failure:
-                             every downstream call failed from request 1 onward, always in a few
-                             ms, for two independent embedded servers simultaneously. -->
-                        <argLine>-Duser.timezone=Asia/Kolkata -Djava.net.preferIPv4Stack=true</argLine>
+                        <!-- -Djava.net.preferIPv4Stack: forces IPv4 for "localhost"/loopback
+                             resolution in tests (harmless, kept as belt-and-suspenders).
+                             -Dreactor.netty.native=false: forces Reactor Netty onto the NIO
+                             transport instead of native epoll. On GitHub Actions' Ubuntu
+                             runners (2 vCPU), the native epoll transport intermittently drops
+                             the gateway's own downstream HTTP calls in GatewayRoutingIT — every
+                             request failed via the CircuitBreaker fallback (503) from the very
+                             first call, deterministically, across two separate CI runs, with
+                             IPv4 pinning ruled out as the cause (confirmed via the raw logs).
+                             The one variable that differed from a passing local run was the
+                             transport: local runs use NIO (no native epoll lib on Windows) and
+                             passed 7/7; CI used epoll and failed consistently. Forcing NIO here
+                             matches the proven-working configuration. -->
+                        <argLine>-Duser.timezone=Asia/Kolkata -Djava.net.preferIPv4Stack=true -Dreactor.netty.native=false</argLine>
                         <useModulePath>false</useModulePath>
                         <includes>
                             <include>**/*Test.java</include>

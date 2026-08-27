@@ -166,7 +166,8 @@ yarn-debug.log
 yarn-error.log
 .pnp
 .pnp.js
-package-lock.json
+# package-lock.json is intentionally NOT ignored — this is an application (not a published
+# library), and `npm ci` in CI requires a committed lock file for reproducible installs.
 yarn.lock
 pnpm-lock.yaml
 

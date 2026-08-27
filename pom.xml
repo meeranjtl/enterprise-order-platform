@@ -231,7 +231,16 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.2.5</version>
                     <configuration>
-                        <argLine>-Duser.timezone=Asia/Kolkata</argLine>
+                        <!-- Forces IPv4 for "localhost" resolution in tests. On GitHub Actions'
+                             Ubuntu runners, Netty's DNS resolver races IPv6 (::1) against IPv4
+                             (127.0.0.1) for loopback connections; when it picks the interface an
+                             embedded test server (WireMock, Lettuce/Redis Testcontainers, etc.)
+                             isn't listening on, every "localhost" call fails instantly with
+                             connection-refused. Never observed locally/in Docker Desktop, where
+                             IPv4 is preferred by default. See GatewayRoutingIT's CI failure:
+                             every downstream call failed from request 1 onward, always in a few
+                             ms, for two independent embedded servers simultaneously. -->
+                        <argLine>-Duser.timezone=Asia/Kolkata -Djava.net.preferIPv4Stack=true</argLine>
                         <useModulePath>false</useModulePath>
                         <includes>
                             <include>**/*Test.java</include>

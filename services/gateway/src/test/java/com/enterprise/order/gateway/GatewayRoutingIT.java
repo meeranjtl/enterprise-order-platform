@@ -56,8 +56,12 @@ class GatewayRoutingIT {
 
     // WireMock must be running before @DynamicPropertySource resolves the port placeholders,
     // so it is started in a static initializer (a @BeforeAll would be too late).
-    static final WireMockServer customerStub = new WireMockServer(wireMockConfig().dynamicPort());
-    static final WireMockServer productStub = new WireMockServer(wireMockConfig().dynamicPort());
+    // bindAddress pinned to 127.0.0.1: on GitHub Actions' Ubuntu runners, Netty's DNS resolver
+    // can race IPv6 (::1) against IPv4 for "localhost" and pick the interface WireMock isn't
+    // listening on, failing every downstream call instantly — never seen locally/in Docker
+    // Desktop. Routes in application-test.yml point at 127.0.0.1 to match.
+    static final WireMockServer customerStub = new WireMockServer(wireMockConfig().bindAddress("127.0.0.1").dynamicPort());
+    static final WireMockServer productStub = new WireMockServer(wireMockConfig().bindAddress("127.0.0.1").dynamicPort());
 
     static {
         customerStub.start();
@@ -70,7 +74,9 @@ class GatewayRoutingIT {
 
     @DynamicPropertySource
     static void registerDynamicProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.redis.host", redis::getHost);
+        // Pinned to 127.0.0.1 rather than redis::getHost() (which resolves to "localhost") for
+        // the same IPv4/IPv6 reason as the WireMock bindAddress above.
+        registry.add("spring.data.redis.host", () -> "127.0.0.1");
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
         registry.add("wiremock.customer.port", customerStub::port);
         registry.add("wiremock.product.port", productStub::port);

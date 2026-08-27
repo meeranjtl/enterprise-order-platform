@@ -64,6 +64,18 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Phase 14: annotation-driven circuit breaker/retry for CustomerClient/ProductClient
+             (the pre-Phase-8 synchronous-call exception). spring-boot-starter-aop is required
+             for resilience4j-spring-boot3's @CircuitBreaker/@Retry aspects to actually weave —
+             without it the annotations are silently no-ops. -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

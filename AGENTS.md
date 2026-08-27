@@ -6,7 +6,7 @@
 
 ## Quick Context
 
-**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **Currently: Phase 13 complete (React UI).** Next: Phase 14 (Docker Orchestration).
+**14-phase microservices order processing platform** (Spring Boot 3, Java 21, PostgreSQL, Kafka) — portfolio/learning project demonstrating enterprise architecture and operational maturity. **All 14 phases complete.**
 
 **Key Stack:** Spring Boot 3, Spring Cloud Gateway, Apache Kafka, PostgreSQL, React 19 + Vite + TypeScript (Phase 13), Docker Compose, Resilience4j
 **Project Type:** Maven multi-module (9 services + gateway + shared-library) + a separate `ui/` npm project — not a Maven module, own `package.json`/build toolchain; see [PHASE_13_COMPLETE.md](PHASE_13_COMPLETE.md)
@@ -90,5 +90,5 @@ See the full list with rationale in [docs/domain-rules.md](docs/domain-rules.md#
 ---
 
 **Last Updated:** August 26, 2026
-**Current Phase:** Phase 13 complete (React UI — full dashboard, CRUD, orders/payments, Kafka event visibility, system health, auth; see [PHASE_13_COMPLETE.md](PHASE_13_COMPLETE.md))
-**Next Phase:** Phase 14 (Docker Orchestration — the `ui` service is already wired into `docker-compose.yml` and verified; remaining scope is circuit-breaker/saga-pattern documentation and final end-to-end polish per [PHASE_QUICK_REFERENCE.md](PHASE_QUICK_REFERENCE.md))
+**Current Phase:** Phase 14 complete — **all 14 phases complete.** Circuit breaker + retry added to order-service's internal calls; payment-service's synchronous, unauthenticated call to order-service replaced with a local `order_snapshots` read model fed from `order-events` (the true root cause of every order previously getting stuck — see [PHASE_14_COMPLETE.md](PHASE_14_COMPLETE.md)); Kafka/ZooKeeper now have persistent volumes; saga/CQRS/event-sourcing documented in [docs/saga.md](docs/saga.md) and [docs/patterns.md](docs/patterns.md); Postman collection in `postman/`; CI workflow in `.github/workflows/ci.yml`.
+**Next Phase:** None planned. For future work, see "Known Issues" in [PHASE_14_COMPLETE.md](PHASE_14_COMPLETE.md).

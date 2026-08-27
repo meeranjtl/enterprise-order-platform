@@ -229,6 +229,13 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    # Phase 14: previously no volume — every ungraceful restart (host sleep, crash, the
+    # documented stale-ephemeral-node recovery: `docker compose rm -f zookeeper kafka`)
+    # recreated the container from empty state and silently dropped every in-flight Kafka
+    # message. Confirmed root cause of a stuck-forever order in Phase 13. See gotchas.md.
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
     networks:
       - enterprise-order-network
 
@@ -260,6 +267,10 @@ services:
       timeout: 20s
       retries: 5
       start_period: 60s
+    # Phase 14: see zookeeper's volume comment above — same rationale, broker's own topic
+    # log data.
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     networks:
       - enterprise-order-network
 
@@ -335,8 +346,13 @@ services:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
+    # Phase 14: was 3000:3000 — collided with the UI's own 3000:3000 (both templated
+    # at port 3000 in IMPLEMENTATION_PLAN.md's original Phase 13/14 specs). Whichever
+    # container started first silently won the port; the other failed to start with
+    # "port is already allocated". Remapped Grafana's host port since :3000 for the UI
+    # is the one documented everywhere (README, AGENTS.md, docs/architecture.md).
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       - prometheus
     networks:
@@ -396,6 +412,9 @@ volumes:
   postgres_data:
   redis_data:
   grafana_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
 
 networks:
   enterprise-order-network:

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { AxiosError } from 'axios'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -21,10 +21,17 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, sessionExpired, acknowledgeSessionExpired } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (sessionExpired) {
+      toast.error('Your session has expired', { description: 'Please sign in again to continue.' })
+      acknowledgeSessionExpired()
+    }
+  }, [sessionExpired, acknowledgeSessionExpired])
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

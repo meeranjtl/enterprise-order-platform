@@ -1,6 +1,6 @@
 # Runbook
 
-Operational guide for running and using the platform after it's up — starting it, logging in, managing catalog/users, and validating an order end to end. Build/test commands for contributors live in [`AGENTS.md`](../AGENTS.md); architecture/ports/Kafka topics live in [`docs/architecture.md`](architecture.md).
+Operational guide for running and using the platform after it's up — starting it, logging in, managing catalog/users, and validating an order end to end. Build/test commands for contributors live in [`AGENTS.md`](../AGENTS.md); architecture/ports/Kafka topics live in [`docs/architecture.md`](architecture.md). For what each step below actually looks like on screen, admin and customer views side by side, see [`docs/ui-tour.md`](ui-tour.md).
 
 ---
 

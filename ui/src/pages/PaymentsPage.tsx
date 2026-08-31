@@ -68,8 +68,9 @@ export default function PaymentsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Payments</h1>
         <p className="text-sm text-muted-foreground">
-          Admin support tool — look up a payment directly by ID to inspect its status or retry/refund it. Most of
-          the time you'll get here from an order's detail page, which shows its payment automatically.
+          {isAdmin
+            ? "Support tool — look up a payment directly by ID to inspect its status or retry/refund it. Most of the time you'll get here from an order's detail page, which shows its payment automatically."
+            : "Look up a payment by ID to view its status. You'll usually get here from an order's detail page, which shows its payment automatically."}
         </p>
       </div>
 

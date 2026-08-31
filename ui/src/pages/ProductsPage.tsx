@@ -1,15 +1,34 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
+import { Pencil, Plus, Tags, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 import { DataTablePagination } from '@/components/DataTablePagination'
 import { StatusBadge } from '@/components/StatusBadge'
+import { CategoryManagerDialog } from '@/components/products/CategoryManagerDialog'
+import { ProductFormDialog } from '@/components/products/ProductFormDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useAuth } from '@/hooks/useAuth'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { listCategories, searchProducts } from '@/services/productApi'
+import { deleteProduct, listCategories, searchProducts } from '@/services/productApi'
+import type { BaseResponse } from '@/types/api'
+import type { Product } from '@/types/product'
 
 const PAGE_SIZE = 10
 const ALL_CATEGORIES = 'all'
@@ -18,12 +37,21 @@ const ALL_STATUSES = 'all'
 const currencyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export default function ProductsPage() {
+  const { hasRole } = useAuth()
+  const isAdmin = hasRole('ADMIN')
+  const queryClient = useQueryClient()
+
   const [name, setName] = useState('')
   const [categoryId, setCategoryId] = useState(ALL_CATEGORIES)
   const [status, setStatus] = useState(ALL_STATUSES)
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [page, setPage] = useState(0)
+
+  const [formOpen, setFormOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined)
+  const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
 
   const debouncedName = useDebouncedValue(name)
   const debouncedMinPrice = useDebouncedValue(minPrice)
@@ -56,11 +84,48 @@ export default function ProductsPage() {
     }
   }
 
+  const deleteMutation = useMutation({
+    mutationFn: (product: Product) => deleteProduct(product.id),
+    onSuccess: () => {
+      toast.success('Product deactivated')
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      setDeleteTarget(null)
+    },
+    onError: (err) => {
+      const axiosError = err as AxiosError<BaseResponse<unknown>>
+      toast.error('Failed to deactivate product', {
+        description: axiosError.response?.data?.error?.message,
+      })
+    },
+  })
+
+  function openCreate() {
+    setEditingProduct(undefined)
+    setFormOpen(true)
+  }
+
+  function openEdit(product: Product) {
+    setEditingProduct(product)
+    setFormOpen(true)
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
-        <p className="text-sm text-muted-foreground">Browse the catalog across every category.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
+          <p className="text-sm text-muted-foreground">Browse the catalog across every category.</p>
+        </div>
+        {isAdmin && (
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+              <Tags /> Categories
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus /> Add product
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card>
@@ -153,6 +218,16 @@ export default function ProductsPage() {
                     <span className="font-medium">{currencyFormatter.format(product.price)}</span>
                     <span className="text-muted-foreground">{product.stockQuantity} in stock</span>
                   </div>
+                  {isAdmin && (
+                    <div className="mt-1 flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openEdit(product)}>
+                        <Pencil /> Edit
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setDeleteTarget(product)}>
+                        <Trash2 /> Deactivate
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -169,6 +244,7 @@ export default function ProductsPage() {
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead>Status</TableHead>
+                    {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -182,6 +258,26 @@ export default function ProductsPage() {
                       <TableCell>
                         <StatusBadge status={product.status} />
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Edit product"
+                            onClick={() => openEdit(product)}
+                          >
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Deactivate product"
+                            onClick={() => setDeleteTarget(product)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -199,6 +295,34 @@ export default function ProductsPage() {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <>
+          <ProductFormDialog open={formOpen} onOpenChange={setFormOpen} product={editingProduct} />
+          <CategoryManagerDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+
+          <AlertDialog open={deleteTarget !== null} onOpenChange={(next) => !next && setDeleteTarget(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Deactivate “{deleteTarget?.name}”?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This discontinues the product — it stays in past orders but won't be sold going forward.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep product</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? 'Deactivating…' : 'Deactivate'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      )}
     </div>
   )
 }

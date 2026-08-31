@@ -53,6 +53,13 @@ public class PaymentService {
         return toDto(find(id));
     }
 
+    @Transactional(readOnly = true)
+    public PaymentDTO getByOrderId(Long orderId) {
+        Payment payment = repository.findByOrderId(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment for order", String.valueOf(orderId)));
+        return toDto(payment);
+    }
+
     public PaymentDTO retry(Long id) {
         Payment payment = find(id);
 

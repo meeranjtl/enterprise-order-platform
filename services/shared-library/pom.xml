@@ -130,6 +130,20 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
+            <!-- kafka-schema-registry-client drags in the old, non-jakarta
+                 io.swagger.core.v3:swagger-annotations (2.1.10). Its Schema class
+                 shares a package with springdoc's swagger-annotations-jakarta
+                 (2.2.9) but predates requiredMode(), so whichever jar wins the
+                 fat-jar classloader race can throw NoSuchMethodError on any
+                 service whose DTOs use Bean Validation annotations (springdoc
+                 calls requiredMode() when generating their schema). Not needed
+                 at runtime, so exclude it. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>io.swagger.core.v3</groupId>
+                    <artifactId>swagger-annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Testing -->

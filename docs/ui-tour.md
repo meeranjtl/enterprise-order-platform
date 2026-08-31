@@ -9,7 +9,11 @@ server-side `@PreAuthorize`, documented per-endpoint in the individual
 service controllers.
 
 Screenshots are from a live local stack (`docker compose up -d --build`),
-captured at 1440×900.
+captured at 1440×900. The theme (top-right toggle in the app) also doubles
+as a role cue here on purpose: **Admin screens are shown in dark mode,
+Customer screens in light mode** — both themes are fully supported for
+either role, this is just a visual shorthand for "which section you're
+looking at."
 
 ---
 

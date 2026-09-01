@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { decodeJwt } from '@/lib/jwt'
+import { onSessionExpired } from '@/lib/sessionEvents'
 import { tokenStore } from '@/lib/tokenStore'
 import * as authApi from '@/services/authApi'
 import type { AuthUser, LoginRequest, RegisterRequest, Role } from '@/types/auth'
@@ -10,6 +11,9 @@ interface AuthContextValue {
   isAuthenticated: boolean
   /** True only while the app is attempting a silent refresh on initial load. */
   isLoading: boolean
+  /** True once, right after the session died server-side (vs. a normal logout) — LoginPage uses it to explain why the user landed there. */
+  sessionExpired: boolean
+  acknowledgeSessionExpired: () => void
   login: (payload: LoginRequest) => Promise<void>
   register: (payload: RegisterRequest) => Promise<void>
   logout: () => Promise<void>
@@ -30,6 +34,17 @@ function userFromAccessToken(accessToken: string): AuthUser {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  useEffect(() => {
+    return onSessionExpired(() => {
+      tokenStore.clear()
+      setUser(null)
+      setSessionExpired(true)
+    })
+  }, [])
+
+  const acknowledgeSessionExpired = useCallback(() => setSessionExpired(false), [])
 
   useEffect(() => {
     const storedRefreshToken = tokenStore.getRefreshToken()
@@ -56,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.setAccessToken(tokens.accessToken)
     tokenStore.setRefreshToken(tokens.refreshToken)
     setUser(userFromAccessToken(tokens.accessToken))
+    setSessionExpired(false)
   }, [])
 
   const register = useCallback(async (payload: RegisterRequest) => {
@@ -78,8 +94,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = useCallback((role: Role) => user?.roles.includes(role) ?? false, [user])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, isLoading, login, register, logout, hasRole }),
-    [user, isLoading, login, register, logout, hasRole],
+    () => ({
+      user,
+      isAuthenticated: user !== null,
+      isLoading,
+      sessionExpired,
+      acknowledgeSessionExpired,
+      login,
+      register,
+      logout,
+      hasRole,
+    }),
+    [user, isLoading, sessionExpired, acknowledgeSessionExpired, login, register, logout, hasRole],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

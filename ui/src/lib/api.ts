@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
+import { emitSessionExpired } from '@/lib/sessionEvents'
 import { tokenStore } from '@/lib/tokenStore'
 import * as authApi from '@/services/authApi'
 import type { BaseResponse } from '@/types/api'
@@ -74,8 +75,11 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest)
       }
 
-      // Refresh failed (expired/revoked) — no session to salvage.
-      window.location.assign('/login')
+      // Refresh failed (expired/revoked) — no session to salvage. Let
+      // AuthContext clear itself so RequireAuth's <Navigate> redirects
+      // cleanly, instead of a hard reload racing this request's own
+      // error state onto the screen first.
+      emitSessionExpired()
     }
 
     return Promise.reject(error)

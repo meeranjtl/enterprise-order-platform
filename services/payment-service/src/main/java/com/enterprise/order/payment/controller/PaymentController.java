@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,6 +39,12 @@ public class PaymentController {
     @Operation(summary = "Get payment status")
     public BaseResponse<PaymentDTO> get(@PathVariable Long id) {
         return BaseResponse.success(paymentService.get(id), "Payment retrieved successfully");
+    }
+
+    @GetMapping(params = "orderId")
+    @Operation(summary = "Get the payment for an order")
+    public BaseResponse<PaymentDTO> getByOrderId(@RequestParam Long orderId) {
+        return BaseResponse.success(paymentService.getByOrderId(orderId), "Payment retrieved successfully");
     }
 
     @PostMapping("/{id}/retry")

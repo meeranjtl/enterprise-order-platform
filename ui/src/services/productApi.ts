@@ -34,3 +34,52 @@ export async function listCategories(): Promise<PageResponse<Category>> {
   })
   return unwrap(data)
 }
+
+export interface ProductInput {
+  sku: string
+  name: string
+  description?: string
+  price: number
+  stockQuantity: number
+  categoryId: number
+  status?: string
+}
+
+export async function createProduct(payload: ProductInput): Promise<Product> {
+  const { data } = await apiClient.post<BaseResponse<Product>>('/api/v1/products', payload)
+  return unwrap(data)
+}
+
+export async function updateProduct(id: number, payload: ProductInput): Promise<Product> {
+  const { data } = await apiClient.put<BaseResponse<Product>>(`/api/v1/products/${id}`, payload)
+  return unwrap(data)
+}
+
+export async function updateStock(id: number, stockQuantity: number): Promise<Product> {
+  const { data } = await apiClient.patch<BaseResponse<Product>>(`/api/v1/products/${id}/stock`, { stockQuantity })
+  return unwrap(data)
+}
+
+export async function deleteProduct(id: number): Promise<void> {
+  await apiClient.delete<BaseResponse<void>>(`/api/v1/products/${id}`)
+}
+
+export interface CategoryInput {
+  name: string
+  description?: string
+  active?: boolean
+}
+
+export async function createCategory(payload: CategoryInput): Promise<Category> {
+  const { data } = await apiClient.post<BaseResponse<Category>>('/api/v1/categories', payload)
+  return unwrap(data)
+}
+
+export async function updateCategory(id: number, payload: CategoryInput): Promise<Category> {
+  const { data } = await apiClient.put<BaseResponse<Category>>(`/api/v1/categories/${id}`, payload)
+  return unwrap(data)
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  await apiClient.delete<BaseResponse<void>>(`/api/v1/categories/${id}`)
+}

@@ -75,7 +75,7 @@ See [`AGENTS.md`](./AGENTS.md) and the individual `PHASE_N_COMPLETE.md` files fo
 
 ## Getting started
 
-See [`PHASE_1_GETTING_STARTED.md`](./PHASE_1_GETTING_STARTED.md) for original local setup instructions, [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full phase-by-phase build plan, and [`AGENTS.md`](./AGENTS.md) for day-to-day build/run/test commands (backend and UI).
+See [`PHASE_1_GETTING_STARTED.md`](./PHASE_1_GETTING_STARTED.md) for original local setup instructions, [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full phase-by-phase build plan, and [`AGENTS.md`](./AGENTS.md) for day-to-day build/run/test commands (backend and UI). Once it's running, see [`docs/runbook.md`](docs/runbook.md) for how to log in (default admin account), manage the product catalog and users, and validate an order end to end — or [`docs/ui-tour.md`](docs/ui-tour.md) for a screen-by-screen look at the UI itself, admin and customer views side by side.
 
 ```bash
 mvn clean install                     # build all backend modules

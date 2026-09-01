@@ -11,6 +11,11 @@ export async function getPayment(id: number): Promise<Payment> {
   return unwrap(data)
 }
 
+export async function getPaymentByOrderId(orderId: number): Promise<Payment> {
+  const { data } = await apiClient.get<BaseResponse<Payment>>('/api/v1/payments', { params: { orderId } })
+  return unwrap(data)
+}
+
 export async function retryPayment(id: number): Promise<Payment> {
   const { data } = await apiClient.post<BaseResponse<Payment>>(`/api/v1/payments/${id}/retry`)
   return unwrap(data)
